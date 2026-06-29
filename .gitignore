@@ -209,3 +209,7 @@ __marimo__/
 # Dagster local runtime artifacts
 .tmp_dagster_home_*/
 tmp/io_manager_storage/
+
+# Docker registry auth for Watchtower / private GHCR pulls (contains a PAT)
+wt-config.json
+**/wt-config.json

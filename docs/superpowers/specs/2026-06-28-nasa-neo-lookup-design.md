@@ -38,13 +38,13 @@ Base URL reuses the existing `BASE_URL = "https://api.nasa.gov"`.
 |----------|--------|
 | Which IDs to fetch | **New + periodic refresh** (new IDs always; existing IDs re-fetched once their lookup is older than the refresh window) |
 | Where IDs come from | **Read the bronze `neows` Delta table** (data dependency on the dlt neows asset) |
-| Budget enforcement | **Run-concurrency limit (primary) + per-run cap (secondary) + dedupe** |
+| Budget enforcement | **429-handling + hourly dedupe (primary) + concurrency pool + per-run cap (secondary)** |
 | Per-ID failures | **Tolerant**: 404 → tombstone; 429 → stop & defer; else raise |
 | Payload shape | **Land the full nested payload** (bronze = raw); dlt normalizes nested fields into child tables; flattening deferred to silver |
 | Code organization | **One module per endpoint** under a `nasa/` package |
 
 **Defaults:** refresh window **30 days**; NASA per-run cap **500 lookups/run**;
-NASA concurrent-run limit **2** (instance config).
+`nasa_api` pool limit **1** (instance config).
 
 ## Adversarial-review changes (v1 → v2)
 
@@ -54,9 +54,10 @@ This revision addresses the review of the v1 spec:
   candidate set is one day of the feed (~10–30 objects), so a 500/run cap never
   triggers in steady state; the real risk is `eager` cascading into *parallel*
   partition runs during a backfill, and the aggregate across NASA endpoints —
-  neither bounded by a per-run count. **Primary control is now a Dagster
-  run-concurrency limit keyed by a `provider: nasa` tag** (Component 5); the cap
-  is kept only as a cheap secondary guard.
+  neither bounded by a per-run count. **The real ceiling is the API's 429 plus
+  the hourly-resume-with-dedupe loop; a `nasa_api` concurrency pool (limit 1,
+  Component 5) serializes access** so runs can't double-spend the shared bucket.
+  The per-run cap is kept only as a cheap secondary guard.
 - **C2 — direct reuse of `nasa_pipeline` risked working-dir/state collisions**
   (no `pipelines_dir` is set, so dlt defaults to `~/.dlt/pipelines/nasa_api`, the
   same object bound into the apod/neows `@dlt_assets`). **The lookup now uses a
@@ -92,8 +93,8 @@ src/auspex_lakehouse/bronze/dlt/sources/
 
 ```python
 NASA_REFRESH_DAYS = 30           # re-fetch a NEO whose lookup is older than this
-NASA_MAX_LOOKUPS_PER_RUN = 500   # secondary per-run guard (primary control is run concurrency)
-NASA_PROVIDER_TAG = {"provider": "nasa"}  # op tag for the concurrency limit
+NASA_MAX_LOOKUPS_PER_RUN = 500   # secondary per-run guard (primary control is the pool + 429-handling)
+NASA_API_POOL = "nasa_api"       # concurrency pool serializing NASA API access
 ```
 
 ## Component 2 — NEO-lookup domain module (`nasa/neo_lookup.py`)
@@ -112,7 +113,7 @@ class NeoWorkPlan:
 
 def select_neo_work_ids(
     candidates: set[str],
-    existing: dict[str, datetime],   # neo_reference_id -> last _lookup_fetched_at
+    existing: dict[str, datetime],   # neo_reference_id -> last lookup_fetched_at
     now: datetime,
     refresh_days: int,
     cap: int,
@@ -142,14 +143,14 @@ def fetch_neo_lookups(neo_ids: list[str], fetched_at: str) -> tuple[list[dict], 
         resp = requests.get(f"{BASE_URL}/neo/rest/v1/neo/{neo_id}",
                             params={"api_key": dlt.secrets["nasa_api_key"]})
         if resp.status_code == 404:
-            rows.append({"neo_reference_id": neo_id, "_lookup_fetched_at": fetched_at,
-                         "_lookup_status": "not_found"})
+            rows.append({"neo_reference_id": neo_id, "lookup_fetched_at": fetched_at,
+                         "lookup_status": "not_found"})
             tomb += 1
             continue
         if resp.status_code == 429:   # budget exhausted mid-run: commit progress, defer rest
             return rows, FetchStats(ok, tomb, True, neo_ids[idx:])
         resp.raise_for_status()       # any other non-2xx is a real error -> fail loudly
-        rows.append({**resp.json(), "_lookup_fetched_at": fetched_at, "_lookup_status": "ok"})
+        rows.append({**resp.json(), "lookup_fetched_at": fetched_at, "lookup_status": "ok"})
         ok += 1
     return rows, FetchStats(ok, tomb, False, [])
 ```
@@ -171,7 +172,7 @@ nasa_neo_lookup_pipeline = dlt.pipeline(
 )
 ```
 
-- **Tombstones** (`_lookup_status="not_found"`) merge in as sparse rows so dedupe
+- **Tombstones** (`lookup_status="not_found"`) merge in as sparse rows so dedupe
   skips them until the refresh window re-tries them — a permanently-dead ID never
   re-poisons the partition (C3).
 - Committing the rows collected *before* a 429 preserves paid-for progress; the
@@ -188,7 +189,7 @@ A thin Dagster `@asset` orchestrates; all NEO logic lives in Component 2.
     partitions_def=daily_partitions,
     deps=[AssetKey(["dlt_nasa_api_neows"])],         # mirrors apod_images -> dlt_nasa_api_apod
     automation_condition=AutomationCondition.eager(),
-    op_tags=NASA_PROVIDER_TAG,                        # subject to the NASA concurrency limit (C1)
+    pool="nasa_api",                                 # serialized against the NASA budget (C1)
 )
 def neo_lookup_asset(context: AssetExecutionContext):
     pk = context.partition_key
@@ -217,7 +218,7 @@ def neo_lookup_asset(context: AssetExecutionContext):
 ```
 
 `_existing_lookup_index()` reads `read_bronze_table("neo_lookup")` (empty if the
-table doesn't exist yet) and parses `_lookup_fetched_at` to tz-aware datetimes —
+table doesn't exist yet) and parses `lookup_fetched_at` to tz-aware datetimes —
 **timestamps are parsed, not string-compared** (M3).
 
 **Why a plain `@asset` (not `@dlt_assets`):** matches the existing `apod_images`
@@ -244,28 +245,40 @@ def read_bronze_table(name: str) -> pl.DataFrame:
   returns `{}` on the first run.
 - The existing `delta_io_manager` in this file is left as-is.
 
-## Component 5 — Budget control via run concurrency (`dagster.yaml`)
+## Component 5 — Budget control via a concurrency pool (`dagster.yaml`)
 
-The primary budget guard. All NASA-calling assets carry `op_tags={"provider":
-"nasa"}` (the new `neo_lookup_asset`, plus the existing `nasa_api_assets` for
-apod/neows). The instance caps concurrent NASA runs so an `eager` backfill cannot
-fan out unboundedly:
+Dagster's documented mechanism for assets hitting a rate-limited API is a
+**concurrency pool** (`pool=` on the asset + a per-pool limit in deployment
+settings), which bounds in-progress op executions *across all runs* — exactly the
+backfill-fan-out risk. The high-volume NASA consumer (`neo_lookup`) joins a
+`nasa_api` pool; future heavy NASA endpoints join the same pool so they share the
+single 1000/hr bucket.
 
 ```yaml
 # dagster.yaml — add alongside the existing `storage:` block
-run_coordinator:
-  module: dagster.core.run_coordinator
-  class: QueuedRunCoordinator
-  config:
-    tag_concurrency_limits:
-      - key: "provider"
-        value: "nasa"
-        limit: 2          # at most 2 NASA runs at once; bounds parallel API pressure
+concurrency:
+  pools:
+    nasa_api:
+      limit: 1          # serialize NASA API access: the budget is one shared
+      granularity: 'op' # bucket, so parallel streams only mutually 429 and double-spend
 ```
 
-This bounds the *rate* of API pressure (the actual constraint), where the per-run
-cap bounds only a single run's *volume*. The full hourly-token rate-budget
-scheduler across all NASA endpoints remains a separate future spec.
+The asset declares `@asset(..., pool="nasa_api")`.
+
+**What actually bounds the 1000/hr spend** is the interaction of three things, in
+order of importance:
+1. **The API's own 429** (Component 2's fetcher rides up to the limit, then stops
+   and defers) — this is the real ceiling.
+2. **The hourly cadence + dedupe** — each run resumes the deferred/new work; the
+   initial backfill drains over successive hours without redoing fetched IDs.
+3. **The pool (limit 1)** — serializes access so two runs can't both burn the
+   shared bucket at once, and prevents dlt pipeline-state races.
+
+The per-run cap (`NASA_MAX_LOOKUPS_PER_RUN`) is a secondary politeness guard that
+leaves headroom for other NASA endpoints sharing the same hour. `apod`/`neows`
+are **not** pooled — each makes ≤1 call per partition, negligible against the
+budget. The full hourly-token rate-budget scheduler across all NASA endpoints
+remains a separate future spec.
 
 ## Data Flow
 
@@ -293,7 +306,7 @@ neows feed (dlt) ─► bronze/neows (Delta)
 | `neo_lookup` table absent (first run) | `_existing_lookup_index()` returns `{}`; all candidates are *new* |
 | Empty work list | Asset short-circuits; zero-count metadata; no API calls |
 | Cap reached | Excess IDs reported via `deferred_over_cap`; fetched next run |
-| Backfill fan-out | Bounded by the `provider: nasa` run-concurrency limit (Component 5) |
+| Backfill fan-out | Serialized by the `nasa_api` concurrency pool (limit 1, Component 5); spend drains over successive hourly runs |
 
 ## Testing
 
