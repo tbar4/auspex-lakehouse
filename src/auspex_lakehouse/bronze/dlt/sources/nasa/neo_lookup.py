@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+import dlt
 from dlt.sources.helpers import requests
 
 from auspex_lakehouse.bronze.dlt.sources.nasa._common import BASE_URL
@@ -77,3 +78,23 @@ def fetch_neo_lookups(
         rows.append({**resp.json(), "lookup_fetched_at": fetched_at, "lookup_status": "ok"})
         stats.fetched_ok += 1
     return rows, stats
+
+
+@dlt.resource(
+    name="neo_lookup",
+    write_disposition="merge",
+    primary_key="neo_reference_id",
+    table_format="delta",
+)
+def neo_lookup_rows(rows: list[dict]):
+    """Pass-through resource over already-fetched rows; dlt does the Delta merge
+    and normalizes nested payload fields (orbital_data, close_approach_data, ...)
+    into child tables."""
+    yield from rows
+
+
+nasa_neo_lookup_pipeline = dlt.pipeline(
+    pipeline_name="nasa_neo_lookup",   # distinct working dir -> no collision with nasa_api
+    destination="filesystem",
+    dataset_name="bronze",             # same bronze dataset -> lands at bronze/neo_lookup
+)
