@@ -116,20 +116,21 @@ translator if meta-based mapping proves unreliable — to be confirmed in impl).
 
 ## Component 4 — Bronze view models
 
-One thin `view` per parent table. Each: `select` the business columns, **exclude
-`_dlt_id` / `_dlt_load_id`**, with light, explicit column listing (no `select *`,
-so schema changes are visible). Example:
+One thin `view` per parent table — a faithful pass-through that drops only the
+dlt system columns, using DuckDB's `EXCLUDE`. This is uniform across all 14
+(DRY), needs no per-table column capture, and lets new source columns flow
+through (the right default for a raw bronze layer; column pinning is a silver
+concern):
 
 ```sql
 -- models/bronze/bronze_neows.sql
 {{ config(materialized='view') }}
-select
-    -- exact dlt-normalized column names captured by the Component 1 spike
-    id, neo_reference_id, name, /* ... */ date
+select * exclude (_dlt_id, _dlt_load_id)
 from {{ source('bronze', 'neows') }}
 ```
 
-Column lists are filled from the spike's `DESCRIBE` output (not guessed).
+(Spike-confirmed: the dlt system columns are exactly `_dlt_id` and
+`_dlt_load_id`.)
 
 ## Component 5 — Dagster integration
 
@@ -152,12 +153,29 @@ their dlt upstreams via the Component 3 mapping.
 - The actual `delta_scan`-over-MinIO read is integration-verified (the
   Component 1 spike + first real run), not in unit CI.
 
+## Scope & validation (post-spike)
+
+The spike ran against real MinIO: **`apod` (179 rows) and `neows` (843 rows) read
+end-to-end; the other 12 source tables do not exist yet** (`neo_lookup` + all
+DONKI assets have never materialized on the homelab). Decision: **build all 14
+bronze models + the Dagster wiring now, but only `apod`/`neows` are validated
+against real data**; the other 12 are authored, parse/compile-clean, and light up
+once their dlt assets first run. They are mechanical copies of the proven
+`select * exclude` pattern.
+
 ## Risks / accepted trade-offs
 
 - **F1 (accepted):** views are not durably queryable (per-run DuckDB catalog);
   Delta tables remain the durable bronze. Silver will use `external` → Delta.
-- **F2 (mitigated by spike-first):** end-to-end Delta-on-MinIO read in DuckDB is
-  the one unproven hop; Component 1 validates it before any models are written.
+- **F2 (resolved by spike):** Delta-on-MinIO reads work in DuckDB (apod/neows
+  proven); the MinIO secret config is `endpoint=<host>`, `url_style=path`,
+  `use_ssl=true`.
+- **F4 (accepted — fail-until-data):** DuckDB's `delta_scan` errors on a Delta
+  table with no data files ("No files in log segment"). A source that is missing
+  or has zero rows (sparse DONKI endpoints can yield no events) makes its bronze
+  view **error until the source has ≥1 row, then self-heal**. No clean DuckDB-side
+  guard (reading parquet directly breaks merge semantics); documented as a known
+  limitation, not worked around.
 - **F3 (minor):** a view re-scans its Delta source on every downstream reference
   (no caching) — negligible for bronze, revisit when silver fans out.
 
