@@ -65,3 +65,6 @@ sources:
       - name: tip
         description: "space-track Tracking and Impact Prediction messages for decaying objects (space-track.org class 'tip')."
         meta: {dagster: {asset_key: ["dlt_spacetrack_tip"]}}
+      - name: celestrak_space_weather
+        description: "CelesTrak consolidated daily space weather — one row per date (F10.7 solar flux observed/adjusted + 81-day averages, 3-hourly & daily Ap/Kp, sunspot number; F10.7_DATA_TYPE flags OBS/INT/PRD/PRM). Drag-driver inputs for orbit propagation (celestrak.org/SpaceData/SW-All.csv)."
+        meta: {dagster: {asset_key: ["dlt_celestrak_space_weather"]}}

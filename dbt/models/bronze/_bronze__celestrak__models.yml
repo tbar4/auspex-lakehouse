@@ -1,0 +1,8 @@
+version: 2
+models:
+  - name: bronze_celestrak_space_weather
+    description: "CelesTrak daily space weather (drag drivers: F10.7 flux + Ap/Kp). One row per date; column names snake_cased by dlt."
+    columns:
+      - name: date
+        description: "Calendar date (YYYY-MM-DD, raw string from the source)."
+        data_tests: [not_null, unique]

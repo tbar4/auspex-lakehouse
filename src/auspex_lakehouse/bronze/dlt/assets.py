@@ -10,6 +10,8 @@ from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
 from dagster_dlt.translator import DltResourceTranslatorData
 
 from auspex_lakehouse.bronze.dlt.sources import (
+    celestrak_pipelines,
+    celestrak_source,
     donki_source,
     incremental_source,
     login_session,
@@ -21,6 +23,7 @@ from auspex_lakehouse.bronze.dlt.sources import (
     snapshot_source,
     spacetrack_pipelines,
 )
+from auspex_lakehouse.bronze.dlt.sources.celestrak.config import CELESTRAK_API_POOL
 from auspex_lakehouse.bronze.dlt.sources.nasa._common import nasa_api_key
 from auspex_lakehouse.bronze.dlt.sources.nasa.config import (
     NASA_API_POOL,
@@ -285,3 +288,32 @@ def donki_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
         end_date=date.fromisoformat(rng.end),
     )
     yield from dlt.run(context=context, dlt_source=source)
+
+
+# ---- CelesTrak: public CSV space-weather file; one snapshot-merge asset ----
+
+
+class CelesTrakDltTranslator(DagsterDltTranslator):
+    def get_asset_spec(self, data: DltResourceTranslatorData):
+        return super().get_asset_spec(data).replace_attributes(
+            # resource name already = celestrak_space_weather
+            key=AssetKey(f"dlt_{data.resource.name}"),
+            automation_condition=AutomationCondition.on_cron("30 5 * * *"),
+        )
+
+
+@dlt_assets(
+    dlt_source=celestrak_source("celestrak_space_weather"),
+    dlt_pipeline=celestrak_pipelines["celestrak_space_weather"],
+    name="celestrak_space_weather_bronze",
+    group_name="celestrak",
+    # NO partitions_def — whole-file current-state snapshot
+    dagster_dlt_translator=CelesTrakDltTranslator(),
+    pool=CELESTRAK_API_POOL,
+)
+def celestrak_space_weather_assets(
+    context: AssetExecutionContext, dlt: DagsterDltResource
+):
+    yield from dlt.run(
+        context=context, dlt_source=celestrak_source("celestrak_space_weather")
+    )

@@ -1,3 +1,7 @@
+from auspex_lakehouse.bronze.dlt.sources.celestrak import (
+    celestrak_pipelines,
+    celestrak_source,
+)
 from auspex_lakehouse.bronze.dlt.sources.nasa import (
     donki_source,
     nasa_api,
@@ -28,4 +32,6 @@ __all__ = [
     "login_session",
     "SNAPSHOT_CLASSES",
     "INCREMENTAL_CLASSES",
+    "celestrak_source",
+    "celestrak_pipelines",
 ]
