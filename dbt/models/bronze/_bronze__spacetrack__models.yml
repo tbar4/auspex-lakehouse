@@ -1,27 +1,149 @@
 version: 2
 models:
   - name: bronze_gp
-    columns: [{name: norad_cat_id, data_tests: [not_null, unique]}]
+    description: >
+      Latest General Perturbations element set (OMM/TLE) per catalogued object —
+      one row per NORAD ID. Source class 'gp'.
+    columns:
+      - {name: norad_cat_id, description: '{{ doc("st_norad_cat_id") }}', data_tests: [not_null, unique]}
+      - {name: object_name, description: '{{ doc("st_object_name") }}'}
+      - {name: object_id, description: '{{ doc("st_object_id") }}'}
+      - {name: object_type, description: '{{ doc("st_object_type") }}'}
+      - {name: classification_type, description: "Data classification: U (unclassified), C, or S."}
+      - {name: rcs_size, description: "Radar cross-section size bucket: SMALL, MEDIUM, or LARGE."}
+      - {name: country_code, description: "Owner/operator country or organization code."}
+      - {name: launch_date, description: "Launch date (YYYY-MM-DD)."}
+      - {name: site, description: "Launch site code."}
+      - {name: decay_date, description: "Decay/re-entry date if decayed (null if on-orbit)."}
+      - {name: epoch, description: "Epoch of the element set (ISO-8601 UTC)."}
+      - {name: mean_motion, description: "Mean motion (revolutions per day)."}
+      - {name: eccentricity, description: "Orbital eccentricity (dimensionless)."}
+      - {name: inclination, description: "Orbital inclination (degrees)."}
+      - {name: ra_of_asc_node, description: "Right ascension of the ascending node (degrees)."}
+      - {name: arg_of_pericenter, description: "Argument of pericenter (degrees)."}
+      - {name: mean_anomaly, description: "Mean anomaly at epoch (degrees)."}
+      - {name: ephemeris_type, description: "Ephemeris type (0 for SGP4)."}
+      - {name: element_set_no, description: "Element set number."}
+      - {name: rev_at_epoch, description: "Revolution number at epoch."}
+      - {name: bstar, description: "SGP4 B* drag term (1/earth radii)."}
+      - {name: mean_motion_dot, description: "First derivative of mean motion (rev/day^2)."}
+      - {name: mean_motion_ddot, description: "Second derivative of mean motion (rev/day^3)."}
+      - {name: semimajor_axis, description: "Semi-major axis (km)."}
+      - {name: period, description: "Orbital period (minutes)."}
+      - {name: apoapsis, description: "Apoapsis altitude (km)."}
+      - {name: periapsis, description: "Periapsis altitude (km)."}
+      - {name: gp_id, description: "space-track internal GP record id."}
+      - {name: tle_line0, description: "TLE line 0 (object name line)."}
+      - {name: tle_line1, description: "TLE line 1."}
+      - {name: tle_line2, description: "TLE line 2."}
+      - {name: creation_date, description: "Time the element set was created (ISO-8601 UTC)."}
   - name: bronze_satcat
-    columns: [{name: norad_cat_id, data_tests: [not_null, unique]}]
+    description: >
+      Satellite Catalog — current metadata for every catalogued object, one row per
+      NORAD ID. Source class 'satcat' (CURRENT='Y').
+    columns:
+      - {name: norad_cat_id, description: '{{ doc("st_norad_cat_id") }}', data_tests: [not_null, unique]}
+      - {name: object_id, description: '{{ doc("st_object_id") }}'}
+      - {name: object_name, description: '{{ doc("st_object_name") }}'}
+      - {name: object_type, description: '{{ doc("st_object_type") }}'}
+      - {name: intldes, description: "International designator (legacy field; same value as object_id)."}
+      - {name: satname, description: "Satellite name (legacy field; same value as object_name)."}
+      - {name: country, description: "Owner/operator country or organization code."}
+      - {name: launch, description: "Launch date (YYYY-MM-DD)."}
+      - {name: site, description: "Launch site code."}
+      - {name: decay, description: "Decay/re-entry date if decayed (null if on-orbit)."}
+      - {name: period, description: "Orbital period (minutes)."}
+      - {name: inclination, description: "Orbital inclination (degrees)."}
+      - {name: apogee, description: "Apogee altitude (km)."}
+      - {name: perigee, description: "Perigee altitude (km)."}
+      - {name: rcs_size, description: "Radar cross-section size bucket: SMALL, MEDIUM, or LARGE."}
+      - {name: rcsvalue, description: "Numeric radar cross-section value (m^2) where available."}
+      - {name: launch_year, description: "Year of launch."}
+      - {name: launch_num, description: "Launch number within the year."}
+      - {name: launch_piece, description: "Piece designator within the launch."}
+      - {name: current, description: "'Y' if this is the current catalog record."}
+      - {name: object_number, description: "Object number (same as norad_cat_id where present)."}
+      - {name: comment, description: "Catalog comment."}
+      - {name: file, description: "space-track internal file/batch id."}
   - name: bronze_boxscore
-    columns: [{name: country, data_tests: [not_null]}]
+    description: >
+      Boxscore — counts of on-orbit and decayed objects by country/organization.
+      Full-replace snapshot (no per-row history). Source class 'boxscore'.
+    columns:
+      - {name: country, description: "Country/organization name or 'ALL' for the global total. Identity column.", data_tests: [not_null]}
+      - {name: spadoc_cd, description: "SPADOC country/organization code."}
+      - {name: orbital_tba, description: "On-orbit objects to-be-assigned a catalog entry."}
+      - {name: orbital_payload_count, description: "On-orbit payload count."}
+      - {name: orbital_rocket_body_count, description: "On-orbit rocket-body count."}
+      - {name: orbital_debris_count, description: "On-orbit debris count."}
+      - {name: orbital_total_count, description: "Total on-orbit object count."}
+      - {name: decayed_payload_count, description: "Decayed payload count."}
+      - {name: decayed_rocket_body_count, description: "Decayed rocket-body count."}
+      - {name: decayed_debris_count, description: "Decayed debris count."}
+      - {name: decayed_total_count, description: "Total decayed object count."}
+      - {name: country_total, description: "Grand total of objects attributed to the country/organization."}
   - name: bronze_decay
+    description: >
+      Decay messages — predicted and observed re-entry events. One row per
+      (norad_cat_id, msg_epoch, precedence). Source class 'decay'.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [norad_cat_id, msg_epoch, precedence]
     columns:
-      - {name: norad_cat_id, data_tests: [not_null]}
-      - {name: msg_epoch, data_tests: [not_null]}
-      - {name: precedence, data_tests: [not_null]}
+      - {name: norad_cat_id, description: '{{ doc("st_norad_cat_id") }}', data_tests: [not_null]}
+      - {name: msg_epoch, description: "Timestamp the decay message was generated (ISO-8601 UTC). Part of the primary key.", data_tests: [not_null]}
+      - {name: precedence, description: "Message precedence/priority; disambiguates messages sharing a norad_cat_id and msg_epoch. Part of the primary key.", data_tests: [not_null]}
+      - {name: object_number, description: "Object number (same as norad_cat_id)."}
+      - {name: object_name, description: '{{ doc("st_object_name") }}'}
+      - {name: intldes, description: "International designator (COSPAR ID)."}
+      - {name: rcs, description: "Radar cross-section value (m^2) where available."}
+      - {name: rcs_size, description: "Radar cross-section size bucket."}
+      - {name: country, description: "Owner/operator country or organization code."}
+      - {name: decay_epoch, description: "Predicted or observed decay/re-entry time (ISO-8601 UTC)."}
+      - {name: source, description: "Source of the decay message."}
+      - {name: msg_type, description: "Message type (e.g. prediction vs observation)."}
   - name: bronze_cdm
-    columns: [{name: cdm_id, data_tests: [not_null, unique]}]
+    description: >
+      Public Conjunction Data Messages — predicted close approaches between two
+      objects. One row per CDM. Source class 'cdm_public'.
+    columns:
+      - {name: cdm_id, description: "Unique conjunction-data-message id. Primary key.", data_tests: [not_null, unique]}
+      - {name: created, description: "Time the CDM was created (ISO-8601 UTC)."}
+      - {name: emergency_reportable, description: "'Y' if the conjunction meets emergency-reporting criteria."}
+      - {name: tca, description: "Time of closest approach (ISO-8601 UTC)."}
+      - {name: min_rng, description: "Minimum range between the two objects at TCA (km)."}
+      - {name: pc, description: "Probability of collision (dimensionless)."}
+      - {name: sat_1_id, description: "NORAD catalog id of the primary object."}
+      - {name: sat_1_name, description: "Name of the primary object."}
+      - {name: sat1_object_type, description: "Object type of the primary object."}
+      - {name: sat1_rcs, description: "Radar cross-section size of the primary object."}
+      - {name: sat_1_excl_vol, description: "Exclusion-volume radius of the primary object (km)."}
+      - {name: sat_2_id, description: "NORAD catalog id of the secondary object."}
+      - {name: sat_2_name, description: "Name of the secondary object."}
+      - {name: sat2_object_type, description: "Object type of the secondary object."}
+      - {name: sat2_rcs, description: "Radar cross-section size of the secondary object."}
+      - {name: sat_2_excl_vol, description: "Exclusion-volume radius of the secondary object (km)."}
   - name: bronze_tip
+    description: >
+      Tracking and Impact Prediction messages for decaying objects. One row per
+      (norad_cat_id, msg_epoch). Source class 'tip'.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [norad_cat_id, msg_epoch]
     columns:
-      - {name: norad_cat_id, data_tests: [not_null]}
-      - {name: msg_epoch, data_tests: [not_null]}
+      - {name: norad_cat_id, description: '{{ doc("st_norad_cat_id") }}', data_tests: [not_null]}
+      - {name: msg_epoch, description: "Timestamp the TIP message was generated (ISO-8601 UTC). Part of the primary key.", data_tests: [not_null]}
+      - {name: insert_epoch, description: "Timestamp the message was inserted into space-track (ISO-8601 UTC)."}
+      - {name: decay_epoch, description: "Predicted decay/impact time (ISO-8601 UTC)."}
+      - {name: window, description: "Prediction window half-width (minutes)."}
+      - {name: rev, description: "Revolution number at predicted decay."}
+      - {name: direction, description: "Ascending/descending pass direction at predicted decay."}
+      - {name: lat, description: "Predicted impact latitude (degrees)."}
+      - {name: lon, description: "Predicted impact longitude (degrees)."}
+      - {name: incl, description: "Orbital inclination (degrees)."}
+      - {name: next_report, description: "Hours until the next TIP report is expected."}
+      - {name: id, description: "space-track internal TIP record id."}
+      - {name: high_interest, description: "'Y' if the object is flagged high-interest."}
+      - {name: object_number, description: "Object number (same as norad_cat_id)."}

@@ -48,14 +48,20 @@ sources:
         description: "DONKI space-weather notifications/reports of all types (api.nasa.gov /DONKI/notifications)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_notifications"]}}
       - name: gp
+        description: "space-track General Perturbations — latest orbital element set (OMM/TLE) per catalogued object (space-track.org class 'gp')."
         meta: {dagster: {asset_key: ["dlt_spacetrack_gp"]}}
       - name: satcat
+        description: "space-track Satellite Catalog — current metadata for every catalogued object (space-track.org class 'satcat')."
         meta: {dagster: {asset_key: ["dlt_spacetrack_satcat"]}}
       - name: boxscore
+        description: "space-track Boxscore — on-orbit and decayed object counts by country/organization (space-track.org class 'boxscore')."
         meta: {dagster: {asset_key: ["dlt_spacetrack_boxscore"]}}
       - name: decay
+        description: "space-track Decay messages — predicted and observed re-entry/decay events (space-track.org class 'decay')."
         meta: {dagster: {asset_key: ["dlt_spacetrack_decay"]}}
       - name: cdm
+        description: "space-track public Conjunction Data Messages — predicted close approaches between objects (space-track.org class 'cdm_public')."
         meta: {dagster: {asset_key: ["dlt_spacetrack_cdm"]}}
       - name: tip
+        description: "space-track Tracking and Impact Prediction messages for decaying objects (space-track.org class 'tip')."
         meta: {dagster: {asset_key: ["dlt_spacetrack_tip"]}}
