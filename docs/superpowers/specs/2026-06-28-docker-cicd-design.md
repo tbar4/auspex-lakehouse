@@ -109,6 +109,14 @@ was materialized end to end. Two non-obvious issues were found and fixed:
    Symptom if wrong: *"Provider `config.toml` cannot hold secret values …
    ValueNotSecretException"* during the dlt `sync` step.
 
+3. **Synology CPU lacks AVX2 → use `polars-lts-cpu`.** On the NAS, the user-code
+   gRPC server died with return code **-4 (SIGILL, illegal instruction)** while
+   importing the definitions: stock `polars` wheels require AVX2, which Synology
+   Celeron/Atom CPUs don't have. Fix: depend on **`polars-lts-cpu`** (no-AVX2 build;
+   ships wheels for all platforms incl. arm64), pinned `>=1.33,<1.34` since lts-cpu
+   lags the main package. Symptom if wrong: container exits -4 on startup, no Python
+   traceback from the asset code itself.
+
 **Verified result:** partition `2026-06-28`, run `SUCCESS` —
 `dlt_nasa_api_apod` rows_loaded=1, `dlt_nasa_api_neows` rows_loaded=2, written to
 `dlt.destinations.filesystem` (s3://auspex-lakehouse), credentials supplied entirely
