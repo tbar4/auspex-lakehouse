@@ -71,3 +71,27 @@ def test_login_failure_raises_on_non_json_probe(monkeypatch):
 
     with pytest.raises(RuntimeError):
         c.login_session()
+
+
+def test_use_test_host_default_false(monkeypatch):
+    monkeypatch.delenv("SPACETRACK_USE_TEST_HOST", raising=False)
+    assert c._use_test_host() is False
+
+
+def test_use_test_host_truthy_values(monkeypatch):
+    for v in ["1", "true", "TRUE", "Yes", " yes "]:
+        monkeypatch.setenv("SPACETRACK_USE_TEST_HOST", v)
+        assert c._use_test_host() is True, v
+
+
+def test_use_test_host_non_truthy_values(monkeypatch):
+    for v in ["0", "false", "no", "", "off"]:
+        monkeypatch.setenv("SPACETRACK_USE_TEST_HOST", v)
+        assert c._use_test_host() is False, v
+
+
+def test_base_url_switches_on_toggle(monkeypatch):
+    monkeypatch.delenv("SPACETRACK_USE_TEST_HOST", raising=False)
+    assert c._base_url() == c.BASE_URL
+    monkeypatch.setenv("SPACETRACK_USE_TEST_HOST", "true")
+    assert c._base_url() == c.DEV_BASE_URL

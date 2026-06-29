@@ -1,10 +1,28 @@
+import os
 from collections.abc import Iterator
 from datetime import date, timedelta
 
 import dlt
 import requests  # stdlib requests: cookie-session persistence across queries
 
-BASE_URL = "https://for-testing-only.space-track.org"
+BASE_URL = "https://space-track.org"
+DEV_BASE_URL = "https://for-testing-only.space-track.org"
+
+_TRUTHY = {"1", "true", "yes"}
+
+
+def _use_test_host() -> bool:
+    """True if SPACETRACK_USE_TEST_HOST is set truthy (1/true/yes, case-insensitive).
+
+    Read at call time so the toggle takes effect per run without re-import. The
+    test host has no rate limits and the throttle is bypassed against it.
+    """
+    return os.getenv("SPACETRACK_USE_TEST_HOST", "").strip().lower() in _TRUTHY
+
+
+def _base_url() -> str:
+    """Test host when the toggle is on, else the production host."""
+    return DEV_BASE_URL if _use_test_host() else BASE_URL
 
 
 def spacetrack_credentials() -> tuple[str, str]:
