@@ -74,3 +74,22 @@ def test_incremental_registry_shape():
     assert by["decay"][3] == "MSG_EPOCH"
     assert by["tip"][3] == "INSERT_EPOCH"
     assert all(len(e) == 4 for e in inc.INCREMENTAL_CLASSES)
+
+
+def test_snapshot_source_exposes_one_named_resource():
+    from auspex_lakehouse.bronze.dlt.sources import snapshot_source
+    src = snapshot_source("gp")  # session=None -> no HTTP
+    assert set(src.resources.keys()) == {"gp"}
+
+
+def test_incremental_source_exposes_one_named_resource():
+    from auspex_lakehouse.bronze.dlt.sources import incremental_source
+    src = incremental_source("decay", start_date=date(2026, 1, 1), end_date=date(2026, 1, 1))
+    assert set(src.resources.keys()) == {"decay"}
+
+
+def test_pipelines_dict_has_all_six():
+    from auspex_lakehouse.bronze.dlt.sources import spacetrack_pipelines
+    assert set(spacetrack_pipelines) == {"gp", "satcat", "boxscore", "decay", "cdm", "tip"}
+    assert spacetrack_pipelines["gp"].pipeline_name == "spacetrack_gp"
+    assert spacetrack_pipelines["decay"].dataset_name == "bronze"
