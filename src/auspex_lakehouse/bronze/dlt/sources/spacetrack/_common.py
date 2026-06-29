@@ -102,14 +102,16 @@ def login_session() -> requests.Session:
     """
     username, password = spacetrack_credentials()
     session = requests.Session()
+    _throttle()
     resp = session.post(
-        f"{BASE_URL}/ajaxauth/login",
+        f"{_base_url()}/ajaxauth/login",
         data={"identity": username, "password": password},
         timeout=60,
     )
     resp.raise_for_status()
+    _throttle()
     probe = session.get(
-        f"{BASE_URL}/basicspacedata/query/class/boxscore/limit/1/format/json",
+        f"{_base_url()}/basicspacedata/query/class/boxscore/limit/1/format/json",
         timeout=60,
     )
     if probe.status_code != 200 or not _looks_like_json_payload(probe):
@@ -123,7 +125,8 @@ def query_class(session: requests.Session, cls: str, *segments: str):
     """GET /basicspacedata/query/class/<cls>/<segments>/format/json -> parsed JSON."""
     path = "/".join(segments)
     sep = "/" if path else ""
-    url = f"{BASE_URL}/basicspacedata/query/class/{cls}{sep}{path}/format/json"
+    url = f"{_base_url()}/basicspacedata/query/class/{cls}{sep}{path}/format/json"
+    _throttle()
     resp = session.get(url, timeout=120)
     resp.raise_for_status()
     return resp.json()

@@ -95,3 +95,43 @@ def test_base_url_switches_on_toggle(monkeypatch):
     assert c._base_url() == c.BASE_URL
     monkeypatch.setenv("SPACETRACK_USE_TEST_HOST", "true")
     assert c._base_url() == c.DEV_BASE_URL
+
+
+@pytest.fixture(autouse=True)
+def _fresh_limiter(monkeypatch):
+    # Isolate the shared singleton AND guarantee no real time.sleep: a never-tripping
+    # limiter for every test in this file that exercises the real _throttle path.
+    monkeypatch.setattr(c, "_LIMITER", c._RateLimiter(10**9, 10**9))
+
+
+def test_query_class_calls_throttle(monkeypatch):
+    calls = []
+    monkeypatch.setattr(c, "_throttle", lambda: calls.append(1))
+    sess = Mock()
+    resp = Mock(raise_for_status=Mock())
+    resp.json.return_value = []
+    sess.get.return_value = resp
+    c.query_class(sess, "boxscore")
+    assert calls == [1]
+
+
+def test_login_session_calls_throttle_for_post_and_probe(monkeypatch):
+    calls = []
+    monkeypatch.setattr(c, "_throttle", lambda: calls.append(1))
+    probe = Mock(status_code=200)
+    probe.json.return_value = [{"ok": 1}]
+    fake, _ = _fake_requests(probe)
+    monkeypatch.setattr(c, "requests", fake)
+    monkeypatch.setattr(c, "spacetrack_credentials", lambda: ("user", "pass"))
+    c.login_session()
+    assert calls == [1, 1]  # one before the POST, one before the probe GET
+
+
+def test_query_class_uses_test_host_url_when_toggled(monkeypatch):
+    monkeypatch.setenv("SPACETRACK_USE_TEST_HOST", "true")
+    sess = Mock()
+    resp = Mock(raise_for_status=Mock())
+    resp.json.return_value = []
+    sess.get.return_value = resp
+    c.query_class(sess, "boxscore")
+    assert sess.get.call_args[0][0].startswith(c.DEV_BASE_URL)
