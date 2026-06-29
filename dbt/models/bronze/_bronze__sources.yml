@@ -1,0 +1,35 @@
+version: 2
+sources:
+  - name: bronze
+    schema: bronze
+    meta:
+      external_location: "delta_scan('s3://auspex-lakehouse/bronze/{name}')"
+    tables:
+      - name: apod
+        meta: {dagster: {asset_key: ["dlt_nasa_api_apod"]}}
+      - name: neows
+        meta: {dagster: {asset_key: ["dlt_nasa_api_neows"]}}
+      - name: neo_lookup
+        meta: {dagster: {asset_key: ["neo_lookup"]}}
+      - name: cme
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_cme"]}}
+      - name: cme_analysis
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_cme_analysis"]}}
+      - name: gst
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_gst"]}}
+      - name: ips
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_ips"]}}
+      - name: flr
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_flr"]}}
+      - name: sep
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_sep"]}}
+      - name: mpc
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_mpc"]}}
+      - name: rbe
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_rbe"]}}
+      - name: hss
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_hss"]}}
+      - name: wsa_enlil_simulations
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_wsa_enlil_simulations"]}}
+      - name: notifications
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_notifications"]}}

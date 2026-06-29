@@ -1,0 +1,16 @@
+auspex_lakehouse:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', '/tmp/auspex_dbt.duckdb') }}"
+      extensions:
+        - httpfs
+        - delta
+      secrets:
+        - type: s3
+          key_id: "{{ env_var('MINIO_ACCESS_KEY', 'unset') }}"
+          secret: "{{ env_var('MINIO_SECRET_KEY', 'unset') }}"
+          endpoint: "{{ env_var('MINIO_ENDPOINT', 'http://unset') | replace('https://','') | replace('http://','') | replace('/','') }}"
+          url_style: path
+          use_ssl: "{{ 'true' if 'https' in env_var('MINIO_ENDPOINT', 'http://unset') else 'false' }}"
