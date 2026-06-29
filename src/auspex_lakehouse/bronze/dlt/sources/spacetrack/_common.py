@@ -13,7 +13,7 @@ from auspex_lakehouse.bronze.dlt.sources.spacetrack.config import (
     SPACETRACK_MAX_PER_MIN,
 )
 
-BASE_URL = "https://space-track.org"
+BASE_URL = "https://www.space-track.org"
 DEV_BASE_URL = "https://for-testing-only.space-track.org"
 
 _TRUTHY = {"1", "true", "yes"}
