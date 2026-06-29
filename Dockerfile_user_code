@@ -30,6 +30,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Put the project venv first on PATH so `dagster` resolves to it.
 ENV PATH="/opt/dagster/app/.venv/bin:${PATH}"
 
+# Bake the dbt manifest into the image so the code location loads without a dev parse.
+# DBT_PROFILES_DIR=. uses profiles.yml from the dbt/ directory (env_var defaults → no MinIO needed).
+RUN cd /opt/dagster/app/dbt && DBT_PROFILES_DIR=. dbt deps && DBT_PROFILES_DIR=. dbt parse
+ENV DBT_PROJECT_DIR=/opt/dagster/app/dbt
+
 EXPOSE 4000
 
 HEALTHCHECK --timeout=2s --start-period=5s --interval=5s --retries=20 \
