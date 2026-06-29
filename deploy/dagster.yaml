@@ -1,0 +1,30 @@
+# Dagster instance config used inside the Docker deployment.
+# Storage is backed by the Postgres service defined in docker-compose.yaml.
+# Credentials are resolved from environment variables at container start.
+storage:
+  postgres:
+    postgres_db:
+      username:
+        env: DAGSTER_POSTGRES_USER
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      hostname:
+        env: DAGSTER_POSTGRES_HOST
+      db_name:
+        env: DAGSTER_POSTGRES_DB
+      port: 5432
+
+# Serialize external-API access so concurrent runs can't both burn a shared
+# rate-limit budget (e.g. NASA's 1000-calls/hour bucket; parallel streams only
+# mutually 429 and double-spend).
+#
+# dagster.yaml can only set instance-wide pool defaults -- a *named* pool's
+# limit is not valid here and must be set via the UI or CLI
+# (`dagster instance concurrency set nasa_api 1`), which persists in the
+# instance DB. `dg dev` uses a throwaway instance, so we rely on this default
+# for local runs. Assign assets/ops to a pool with `pool="nasa_api"`; raise an
+# individual pool above the default via the CLI/UI in the deployed instance.
+concurrency:
+  pools:
+    default_limit: 1
+    granularity: 'op'
