@@ -32,7 +32,9 @@ def test_donki_assets_pooled_and_grouped():
     assert ad.group_names_by_key[cme] == "donki"
 
     # Fix 4: guard the on_cron schedule via DonkiDltTranslator
-    cme_spec = next(s for s in ad.specs if s.key == AssetKey(["dlt_nasa_donki_coronal_mass_ejections"]))
+    cme_spec = next(
+        s for s in ad.specs if s.key == AssetKey(["dlt_nasa_donki_coronal_mass_ejections"])
+    )
     assert cme_spec.automation_condition is not None
 
     # Fix 5: assert pool and group for all 11 DONKI assets

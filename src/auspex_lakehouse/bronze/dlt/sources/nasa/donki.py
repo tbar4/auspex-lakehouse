@@ -33,17 +33,18 @@ def _donki_resource(name, endpoint_path, primary_key, extra_params=None):
 
 # (resource_name, endpoint_path, primary_key, extra_params)
 DONKI_ENDPOINTS = [
-    ("nasa_donki_coronal_mass_ejections",         "CME",                 "activityID",                     None),
-    ("nasa_donki_coronal_mass_ejection_analyses", "CMEAnalysis",         ["associatedCMEID", "time21_5"],  None),
-    ("nasa_donki_geomagnetic_storms",             "GST",                 "gstID",                          None),
-    ("nasa_donki_interplanetary_shocks",          "IPS",                 "activityID",                     None),
-    ("nasa_donki_solar_flares",                   "FLR",                 "flrID",                          None),
-    ("nasa_donki_solar_energetic_particles",      "SEP",                 "sepID",                          None),
-    ("nasa_donki_magnetopause_crossings",         "MPC",                 "mpcID",                          None),
-    ("nasa_donki_radiation_belt_enhancements",    "RBE",                 "rbeID",                          None),
-    ("nasa_donki_high_speed_streams",             "HSS",                 "hssID",                          None),
-    ("nasa_donki_wsa_enlil_simulations",          "WSAEnlilSimulations", "simulationID",                   None),
-    ("nasa_donki_notifications",                  "notifications",       "messageID",                  {"type": "all"}),
+    ("nasa_donki_coronal_mass_ejections", "CME", "activityID", None),
+    ("nasa_donki_coronal_mass_ejection_analyses", "CMEAnalysis",
+     ["associatedCMEID", "time21_5"], None),
+    ("nasa_donki_geomagnetic_storms", "GST", "gstID", None),
+    ("nasa_donki_interplanetary_shocks", "IPS", "activityID", None),
+    ("nasa_donki_solar_flares", "FLR", "flrID", None),
+    ("nasa_donki_solar_energetic_particles", "SEP", "sepID", None),
+    ("nasa_donki_magnetopause_crossings", "MPC", "mpcID", None),
+    ("nasa_donki_radiation_belt_enhancements", "RBE", "rbeID", None),
+    ("nasa_donki_high_speed_streams", "HSS", "hssID", None),
+    ("nasa_donki_wsa_enlil_simulations", "WSAEnlilSimulations", "simulationID", None),
+    ("nasa_donki_notifications", "notifications", "messageID", {"type": "all"}),
 ]
 
 

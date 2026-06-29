@@ -49,7 +49,11 @@ def test_resource_builds_request_with_extra_params(monkeypatch):
 
 
 def test_resource_metadata_composite_key():
-    res = _donki_resource("nasa_donki_coronal_mass_ejection_analyses", "CMEAnalysis", ["associatedCMEID", "time21_5"])
+    res = _donki_resource(
+        "nasa_donki_coronal_mass_ejection_analyses",
+        "CMEAnalysis",
+        ["associatedCMEID", "time21_5"],
+    )
     assert res.name == "nasa_donki_coronal_mass_ejection_analyses"
     assert res.write_disposition == "merge"
     ts = res.compute_table_schema()

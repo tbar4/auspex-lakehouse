@@ -20,13 +20,17 @@ def test_snapshot_resource_yields_each_row(monkeypatch):
 
 def test_snapshot_resource_non_list_yields_nothing(monkeypatch):
     monkeypatch.setattr(snap, "query_class", lambda session, *seg: None)
-    res = snap._snapshot_resource("space_track_general_perturbations", "gp", "NORAD_CAT_ID", (), "merge", 0)
+    res = snap._snapshot_resource(
+        "space_track_general_perturbations", "gp", "NORAD_CAT_ID", (), "merge", 0
+    )
     assert list(res(session=Mock())) == []
 
 
 def test_snapshot_resource_raises_below_floor(monkeypatch):
     monkeypatch.setattr(snap, "query_class", lambda session, *seg: [{"x": 1}])
-    res = snap._snapshot_resource("space_track_general_perturbations", "gp", "NORAD_CAT_ID", (), "merge", 10)
+    res = snap._snapshot_resource(
+        "space_track_general_perturbations", "gp", "NORAD_CAT_ID", (), "merge", 10
+    )
     # dlt wraps RuntimeError in ResourceExtractionError (PipeException -> DltException -> Exception)
     with pytest.raises(Exception, match="suspected row-cap"):
         list(res(session=Mock()))
@@ -34,9 +38,19 @@ def test_snapshot_resource_raises_below_floor(monkeypatch):
 
 def test_snapshot_registry_shape():
     by = {e[0]: e for e in snap.SNAPSHOT_CLASSES}
-    assert [e[0] for e in snap.SNAPSHOT_CLASSES] == ["space_track_general_perturbations", "space_track_satellite_catalog", "space_track_boxscore"]
-    assert by["space_track_general_perturbations"][4] == "merge" and by["space_track_general_perturbations"][2] == "NORAD_CAT_ID"
-    assert by["space_track_satellite_catalog"][4] == "merge" and by["space_track_satellite_catalog"][2] == "NORAD_CAT_ID"
+    assert [e[0] for e in snap.SNAPSHOT_CLASSES] == [
+        "space_track_general_perturbations",
+        "space_track_satellite_catalog",
+        "space_track_boxscore",
+    ]
+    assert (
+        by["space_track_general_perturbations"][4] == "merge"
+        and by["space_track_general_perturbations"][2] == "NORAD_CAT_ID"
+    )
+    assert (
+        by["space_track_satellite_catalog"][4] == "merge"
+        and by["space_track_satellite_catalog"][2] == "NORAD_CAT_ID"
+    )
     assert by["space_track_boxscore"][4] == "replace" and by["space_track_boxscore"][2] is None
     assert by["space_track_boxscore"][5] is None  # no row-count floor for the small aggregate
 
@@ -62,13 +76,19 @@ def test_incremental_resource_windows_each_day(monkeypatch):
 
 def test_incremental_resource_non_list_yields_nothing(monkeypatch):
     monkeypatch.setattr(inc, "query_class", lambda *a: None)
-    res = inc._incremental_resource("space_track_tracking_and_impact_predictions", "tip", ["NORAD_CAT_ID"], "INSERT_EPOCH")
+    res = inc._incremental_resource(
+        "space_track_tracking_and_impact_predictions", "tip", ["NORAD_CAT_ID"], "INSERT_EPOCH"
+    )
     assert list(res(Mock(), date(2026, 1, 1), date(2026, 1, 1))) == []
 
 
 def test_incremental_registry_shape():
     by = {e[0]: e for e in inc.INCREMENTAL_CLASSES}
-    assert [e[0] for e in inc.INCREMENTAL_CLASSES] == ["space_track_decays", "space_track_conjunction_data_messages", "space_track_tracking_and_impact_predictions"]
+    assert [e[0] for e in inc.INCREMENTAL_CLASSES] == [
+        "space_track_decays",
+        "space_track_conjunction_data_messages",
+        "space_track_tracking_and_impact_predictions",
+    ]
     assert by["space_track_conjunction_data_messages"][1] == "cdm_public"
     assert by["space_track_conjunction_data_messages"][2] == "CDM_ID"
     assert by["space_track_decays"][3] == "MSG_EPOCH"
@@ -84,14 +104,26 @@ def test_snapshot_source_exposes_one_named_resource():
 
 def test_incremental_source_exposes_one_named_resource():
     from auspex_lakehouse.bronze.dlt.sources import incremental_source
-    src = incremental_source("space_track_decays", start_date=date(2026, 1, 1), end_date=date(2026, 1, 1))
+    src = incremental_source(
+        "space_track_decays", start_date=date(2026, 1, 1), end_date=date(2026, 1, 1)
+    )
     assert set(src.resources.keys()) == {"space_track_decays"}
 
 
 def test_pipelines_dict_has_all_six():
     from auspex_lakehouse.bronze.dlt.sources import spacetrack_pipelines
-    assert set(spacetrack_pipelines) == {"space_track_general_perturbations", "space_track_satellite_catalog", "space_track_boxscore", "space_track_decays", "space_track_conjunction_data_messages", "space_track_tracking_and_impact_predictions"}
-    assert spacetrack_pipelines["space_track_general_perturbations"].pipeline_name == "spacetrack_space_track_general_perturbations"
+    assert set(spacetrack_pipelines) == {
+        "space_track_general_perturbations",
+        "space_track_satellite_catalog",
+        "space_track_boxscore",
+        "space_track_decays",
+        "space_track_conjunction_data_messages",
+        "space_track_tracking_and_impact_predictions",
+    }
+    assert (
+        spacetrack_pipelines["space_track_general_perturbations"].pipeline_name
+        == "spacetrack_space_track_general_perturbations"
+    )
     assert spacetrack_pipelines["space_track_decays"].dataset_name == "bronze"
 
 

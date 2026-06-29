@@ -33,8 +33,12 @@ _SOURCE_ASSET_KEYS = {
     "space_track_satellite_catalog": AssetKey(["dlt_space_track_satellite_catalog"]),
     "space_track_boxscore": AssetKey(["dlt_space_track_boxscore"]),
     "space_track_decays": AssetKey(["dlt_space_track_decays"]),
-    "space_track_conjunction_data_messages": AssetKey(["dlt_space_track_conjunction_data_messages"]),
-    "space_track_tracking_and_impact_predictions": AssetKey(["dlt_space_track_tracking_and_impact_predictions"]),
+    "space_track_conjunction_data_messages": AssetKey(
+        ["dlt_space_track_conjunction_data_messages"]
+    ),
+    "space_track_tracking_and_impact_predictions": AssetKey(
+        ["dlt_space_track_tracking_and_impact_predictions"]
+    ),
     "celestrak_space_weather": AssetKey(["dlt_celestrak_space_weather"]),
 }
 

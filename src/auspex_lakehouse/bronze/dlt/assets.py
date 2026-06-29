@@ -80,7 +80,9 @@ def nasa_api_assets(
 def apod_images(context: AssetExecutionContext):
     partition_key = context.partition_key
 
-    df = read_bronze_table("nasa_astronomy_picture_of_the_day").filter(pl.col("date") == partition_key)
+    df = read_bronze_table("nasa_astronomy_picture_of_the_day").filter(
+        pl.col("date") == partition_key
+    )
 
     s3 = boto3.client(
         "s3",
@@ -125,7 +127,9 @@ def _existing_lookup_index() -> dict[str, datetime]:
     to ``str`` so they compare equal to the str-coerced candidates."""
     if not bronze_table_exists("nasa_near_earth_object_lookups"):
         return {}
-    df = read_bronze_table("nasa_near_earth_object_lookups").select(["neo_reference_id", "lookup_fetched_at"])
+    df = read_bronze_table("nasa_near_earth_object_lookups").select(
+        ["neo_reference_id", "lookup_fetched_at"]
+    )
     index: dict[str, datetime] = {}
     for row in df.iter_rows(named=True):
         ts = row["lookup_fetched_at"]
@@ -149,7 +153,8 @@ def _existing_lookup_index() -> dict[str, datetime]:
 )
 def neo_lookup(context: AssetExecutionContext):
     partition_key = context.partition_key
-    # nasa_near_earth_object_feed table is guaranteed to exist by the dlt_nasa_near_earth_object_feed dep above.
+    # nasa_near_earth_object_feed table is guaranteed to exist by the
+    # dlt_nasa_near_earth_object_feed dep above.
     candidates = {
         str(neo_id)  # coerce so candidate IDs compare equal to str-keyed existing index
         for neo_id in read_bronze_table("nasa_near_earth_object_feed")
@@ -271,7 +276,9 @@ spacetrack_satcat_assets = _spacetrack_snapshot_assets("space_track_satellite_ca
 spacetrack_boxscore_assets = _spacetrack_snapshot_assets("space_track_boxscore")
 spacetrack_decay_assets = _spacetrack_incremental_assets("space_track_decays")
 spacetrack_cdm_assets = _spacetrack_incremental_assets("space_track_conjunction_data_messages")
-spacetrack_tip_assets = _spacetrack_incremental_assets("space_track_tracking_and_impact_predictions")
+spacetrack_tip_assets = _spacetrack_incremental_assets(
+    "space_track_tracking_and_impact_predictions"
+)
 
 
 class DonkiDltTranslator(DagsterDltTranslator):

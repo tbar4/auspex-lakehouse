@@ -17,7 +17,8 @@ def test_neo_lookup_asset_is_pooled():
     ad = next(
         a
         for a in defs.assets
-        if isinstance(a, AssetsDefinition) and AssetKey(["nasa_near_earth_object_lookups"]) in a.keys
+        if isinstance(a, AssetsDefinition)
+        and AssetKey(["nasa_near_earth_object_lookups"]) in a.keys
     )
     assert ad.op.pool == "nasa_api"
 

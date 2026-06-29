@@ -25,7 +25,8 @@ def _incremental_resource(name, cls, primary_key, date_predicate):
 
 INCREMENTAL_CLASSES = [
     # (name, class, primary_key, date_predicate)
-    ("space_track_decays",                          "decay",      ["NORAD_CAT_ID", "MSG_EPOCH", "PRECEDENCE"], "MSG_EPOCH"),
-    ("space_track_conjunction_data_messages",       "cdm_public", "CDM_ID",                                    "CREATED"),
-    ("space_track_tracking_and_impact_predictions", "tip",        ["NORAD_CAT_ID", "MSG_EPOCH"],               "INSERT_EPOCH"),
+    ("space_track_decays", "decay", ["NORAD_CAT_ID", "MSG_EPOCH", "PRECEDENCE"], "MSG_EPOCH"),
+    ("space_track_conjunction_data_messages", "cdm_public", "CDM_ID", "CREATED"),
+    ("space_track_tracking_and_impact_predictions", "tip",
+     ["NORAD_CAT_ID", "MSG_EPOCH"], "INSERT_EPOCH"),
 ]
