@@ -29,12 +29,12 @@ _SOURCE_ASSET_KEYS = {
             "nasa_donki_notifications",
         ]
     },
-    "gp": AssetKey(["dlt_spacetrack_gp"]),
-    "satcat": AssetKey(["dlt_spacetrack_satcat"]),
-    "boxscore": AssetKey(["dlt_spacetrack_boxscore"]),
-    "decay": AssetKey(["dlt_spacetrack_decay"]),
-    "cdm": AssetKey(["dlt_spacetrack_cdm"]),
-    "tip": AssetKey(["dlt_spacetrack_tip"]),
+    "space_track_general_perturbations": AssetKey(["dlt_space_track_general_perturbations"]),
+    "space_track_satellite_catalog": AssetKey(["dlt_space_track_satellite_catalog"]),
+    "space_track_boxscore": AssetKey(["dlt_space_track_boxscore"]),
+    "space_track_decays": AssetKey(["dlt_space_track_decays"]),
+    "space_track_conjunction_data_messages": AssetKey(["dlt_space_track_conjunction_data_messages"]),
+    "space_track_tracking_and_impact_predictions": AssetKey(["dlt_space_track_tracking_and_impact_predictions"]),
 }
 
 

@@ -197,8 +197,16 @@ def neo_lookup(context: AssetExecutionContext):
 
 # Staggered after SATCAT's 1700 UTC update; off-the-hour minutes (they serialize on
 # the pool regardless, but staggering keeps the scheduler tidy).
-_ST_SNAPSHOT_CRON = {"gp": "11 18 * * *", "satcat": "21 18 * * *", "boxscore": "31 18 * * *"}
-_ST_INCREMENTAL_CRON = {"decay": "41 18 * * *", "cdm": "46 18 * * *", "tip": "51 18 * * *"}
+_ST_SNAPSHOT_CRON = {
+    "space_track_general_perturbations": "11 18 * * *",
+    "space_track_satellite_catalog": "21 18 * * *",
+    "space_track_boxscore": "31 18 * * *",
+}
+_ST_INCREMENTAL_CRON = {
+    "space_track_decays": "41 18 * * *",
+    "space_track_conjunction_data_messages": "46 18 * * *",
+    "space_track_tracking_and_impact_predictions": "51 18 * * *",
+}
 
 
 class SpaceTrackDltTranslator(DagsterDltTranslator):
@@ -208,7 +216,7 @@ class SpaceTrackDltTranslator(DagsterDltTranslator):
 
     def get_asset_spec(self, data: DltResourceTranslatorData):
         return super().get_asset_spec(data).replace_attributes(
-            key=AssetKey(f"dlt_spacetrack_{data.resource.name}"),
+            key=AssetKey(f"dlt_{data.resource.name}"),
             automation_condition=AutomationCondition.on_cron(self._cron),
         )
 
@@ -255,12 +263,12 @@ def _spacetrack_incremental_assets(name: str):
     return _assets
 
 
-spacetrack_gp_assets = _spacetrack_snapshot_assets("gp")
-spacetrack_satcat_assets = _spacetrack_snapshot_assets("satcat")
-spacetrack_boxscore_assets = _spacetrack_snapshot_assets("boxscore")
-spacetrack_decay_assets = _spacetrack_incremental_assets("decay")
-spacetrack_cdm_assets = _spacetrack_incremental_assets("cdm")
-spacetrack_tip_assets = _spacetrack_incremental_assets("tip")
+spacetrack_gp_assets = _spacetrack_snapshot_assets("space_track_general_perturbations")
+spacetrack_satcat_assets = _spacetrack_snapshot_assets("space_track_satellite_catalog")
+spacetrack_boxscore_assets = _spacetrack_snapshot_assets("space_track_boxscore")
+spacetrack_decay_assets = _spacetrack_incremental_assets("space_track_decays")
+spacetrack_cdm_assets = _spacetrack_incremental_assets("space_track_conjunction_data_messages")
+spacetrack_tip_assets = _spacetrack_incremental_assets("space_track_tracking_and_impact_predictions")
 
 
 class DonkiDltTranslator(DagsterDltTranslator):

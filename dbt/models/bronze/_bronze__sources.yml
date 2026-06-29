@@ -47,15 +47,15 @@ sources:
       - name: nasa_donki_notifications
         description: "DONKI space-weather notifications/reports of all types (api.nasa.gov /DONKI/notifications)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_notifications"]}}
-      - name: gp
-        meta: {dagster: {asset_key: ["dlt_spacetrack_gp"]}}
-      - name: satcat
-        meta: {dagster: {asset_key: ["dlt_spacetrack_satcat"]}}
-      - name: boxscore
-        meta: {dagster: {asset_key: ["dlt_spacetrack_boxscore"]}}
-      - name: decay
-        meta: {dagster: {asset_key: ["dlt_spacetrack_decay"]}}
-      - name: cdm
-        meta: {dagster: {asset_key: ["dlt_spacetrack_cdm"]}}
-      - name: tip
-        meta: {dagster: {asset_key: ["dlt_spacetrack_tip"]}}
+      - name: space_track_general_perturbations
+        meta: {dagster: {asset_key: ["dlt_space_track_general_perturbations"]}}
+      - name: space_track_satellite_catalog
+        meta: {dagster: {asset_key: ["dlt_space_track_satellite_catalog"]}}
+      - name: space_track_boxscore
+        meta: {dagster: {asset_key: ["dlt_space_track_boxscore"]}}
+      - name: space_track_decays
+        meta: {dagster: {asset_key: ["dlt_space_track_decays"]}}
+      - name: space_track_conjunction_data_messages
+        meta: {dagster: {asset_key: ["dlt_space_track_conjunction_data_messages"]}}
+      - name: space_track_tracking_and_impact_predictions
+        meta: {dagster: {asset_key: ["dlt_space_track_tracking_and_impact_predictions"]}}
