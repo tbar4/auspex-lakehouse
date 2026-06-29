@@ -19,8 +19,8 @@ External APIs ──(dlt extract)──▶ Delta tables on S3 ──(dbt views)�
 - **Model:** each `bronze_<table>` here is a thin dbt **view** —
   `select * exclude (_dlt_id, _dlt_load_id)` over its Delta table. Bronze preserves the
   source shape; it does not clean or reshape data.
-- **Lineage:** every bronze model traces back to its Dagster dlt asset
-  (`dlt_nasa_*` / `dlt_spacetrack_*`) via the source `meta.dagster.asset_key`.
+- **Lineage:** every bronze model traces back to its upstream Dagster dlt asset
+  (`dlt_nasa_*`, `dlt_spacetrack_*`, or `neo_lookup`) through the dbt source's asset-key mapping.
 
 ## Conventions
 
