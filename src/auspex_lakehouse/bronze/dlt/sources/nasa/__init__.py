@@ -3,6 +3,7 @@ from datetime import date
 import dlt
 
 from auspex_lakehouse.bronze.dlt.sources.nasa.apod import apod
+from auspex_lakehouse.bronze.dlt.sources.nasa.donki import donki_source, nasa_donki_pipeline
 from auspex_lakehouse.bronze.dlt.sources.nasa.neo_lookup import (
     nasa_neo_lookup_pipeline,
     neo_lookup_rows,
@@ -31,4 +32,6 @@ __all__ = [
     "nasa_pipeline",
     "neo_lookup_rows",
     "nasa_neo_lookup_pipeline",
+    "donki_source",
+    "nasa_donki_pipeline",
 ]
