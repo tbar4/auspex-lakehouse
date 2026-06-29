@@ -7,7 +7,7 @@ from auspex_lakehouse.bronze.dlt.sources.nasa._common import BASE_URL, iter_days
 
 
 @dlt.resource(
-    name="neows",
+    name="nasa_near_earth_object_feed",
     write_disposition="merge",
     primary_key=["date", "id"],
     table_format="delta",

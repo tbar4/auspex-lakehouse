@@ -1,3 +1,3 @@
 {{ config(materialized='view') }}
 select * exclude (_dlt_id, _dlt_load_id)
-from {{ source('bronze', 'tip') }}
+from {{ source('bronze', 'nasa_donki_solar_energetic_particles') }}

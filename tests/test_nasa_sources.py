@@ -12,7 +12,10 @@ def test_nasa_source_exposes_apod_and_neows():
     from auspex_lakehouse.bronze.dlt.sources import nasa_api
 
     src = nasa_api(start_date=date(2026, 1, 1), end_date=date(2026, 1, 1))
-    assert set(src.resources.keys()) == {"apod", "neows"}
+    assert set(src.resources.keys()) == {
+        "nasa_astronomy_picture_of_the_day",
+        "nasa_near_earth_object_feed",
+    }
 
 
 def test_neo_lookup_resource_and_pipeline_exported():
@@ -23,4 +26,4 @@ def test_neo_lookup_resource_and_pipeline_exported():
 
     assert nasa_neo_lookup_pipeline.pipeline_name == "nasa_neo_lookup"
     res = neo_lookup_rows([{"neo_reference_id": "a"}])
-    assert res.name == "neo_lookup"
+    assert res.name == "nasa_near_earth_object_lookups"

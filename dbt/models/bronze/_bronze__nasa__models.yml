@@ -1,6 +1,6 @@
 version: 2
 models:
-  - name: bronze_apod
+  - name: bronze_nasa_astronomy_picture_of_the_day
     description: >
       Astronomy Picture of the Day — one row per calendar date. Pass-through view
       over the apod Delta table (dlt internal columns excluded).
@@ -13,7 +13,7 @@ models:
       - {name: media_type, description: "Asset type: 'image' or 'video'."}
       - {name: service_version, description: "APOD API service version (e.g. 'v1')."}
       - {name: copyright, description: "Copyright holder when the asset is not public domain (null otherwise)."}
-  - name: bronze_neows
+  - name: bronze_nasa_near_earth_object_feed
     description: >
       Near-Earth Object daily feed — one row per asteroid per feed date.
       Child table: close_approach_data (per close-approach event: epoch, relative
@@ -26,13 +26,13 @@ models:
     columns:
       - {name: date, description: "Feed date (YYYY-MM-DD) on which the object was reported close-approaching. Primary key with id.", data_tests: [not_null]}
       - {name: id, description: "NeoWs object id. Primary key with date.", data_tests: [not_null]}
-      - {name: neo_reference_id, description: "Stable NEO reference id; join key to bronze_neo_lookup."}
+      - {name: neo_reference_id, description: "Stable NEO reference id; join key to bronze_nasa_near_earth_object_lookups."}
       - {name: name, description: "Object designation / name."}
       - {name: nasa_jpl_url, description: "Link to the object's JPL Small-Body Database page."}
       - {name: absolute_magnitude_h, description: "Absolute magnitude (H) of the object."}
       - {name: is_potentially_hazardous_asteroid, description: "True if classified as a Potentially Hazardous Asteroid."}
       - {name: is_sentry_object, description: "True if present on the JPL Sentry impact-risk list."}
-  - name: bronze_neo_lookup
+  - name: bronze_nasa_near_earth_object_lookups
     description: >
       Per-object NEO lookups enriched with orbital data. lookup_status='not_found'
       rows are 404 tombstones (only neo_reference_id, lookup_fetched_at, lookup_status
@@ -48,7 +48,7 @@ models:
       - {name: absolute_magnitude_h, description: "Absolute magnitude (H) of the object."}
       - {name: is_potentially_hazardous_asteroid, description: "True if classified as a Potentially Hazardous Asteroid."}
       - {name: is_sentry_object, description: "True if present on the JPL Sentry impact-risk list."}
-  - name: bronze_cme
+  - name: bronze_nasa_donki_coronal_mass_ejections
     description: >
       DONKI Coronal Mass Ejection events. Child tables: cme_analyses, instruments,
       linked_events.
@@ -62,7 +62,7 @@ models:
       - {name: submission_time, description: "Time the record was submitted to DONKI."}
       - {name: version_id, description: "Record version number."}
       - {name: link, description: "URL to the DONKI web record."}
-  - name: bronze_cme_analysis
+  - name: bronze_nasa_donki_coronal_mass_ejection_analyses
     description: >
       DONKI CME Analysis — kinematic fit per CME. Child table: enlil_list
       (associated WSA-Enlil simulation links).
@@ -84,7 +84,7 @@ models:
       - {name: link, description: "URL to the DONKI web record."}
       - {name: submission_time, description: "Time the analysis was submitted."}
       - {name: version_id, description: "Record version number."}
-  - name: bronze_gst
+  - name: bronze_nasa_donki_geomagnetic_storms
     description: "DONKI Geomagnetic Storm events. Child tables: all_kp_index, linked_events."
     columns:
       - {name: gst_id, description: "Unique geomagnetic-storm identifier. Primary key.", data_tests: [not_null, unique]}
@@ -92,7 +92,7 @@ models:
       - {name: link, description: "URL to the DONKI web record."}
       - {name: submission_time, description: "Time the record was submitted."}
       - {name: version_id, description: "Record version number."}
-  - name: bronze_ips
+  - name: bronze_nasa_donki_interplanetary_shocks
     description: "DONKI Interplanetary Shock events. Child tables: instruments, linked_events."
     columns:
       - {name: activity_id, description: "Unique IPS activity identifier. Primary key.", data_tests: [not_null, unique]}
@@ -102,7 +102,7 @@ models:
       - {name: link, description: "URL to the DONKI web record."}
       - {name: submission_time, description: "Time the record was submitted."}
       - {name: version_id, description: "Record version number."}
-  - name: bronze_flr
+  - name: bronze_nasa_donki_solar_flares
     description: "DONKI Solar Flare events. Child tables: instruments, linked_events."
     columns:
       - {name: flr_id, description: "Unique solar-flare identifier. Primary key.", data_tests: [not_null, unique]}
@@ -117,7 +117,7 @@ models:
       - {name: link, description: "URL to the DONKI web record."}
       - {name: submission_time, description: "Time the record was submitted."}
       - {name: version_id, description: "Record version number."}
-  - name: bronze_sep
+  - name: bronze_nasa_donki_solar_energetic_particles
     description: "DONKI Solar Energetic Particle events. Child tables: instruments, linked_events."
     columns:
       - {name: sep_id, description: "Unique SEP identifier. Primary key.", data_tests: [not_null, unique]}
@@ -125,7 +125,7 @@ models:
       - {name: link, description: "URL to the DONKI web record."}
       - {name: submission_time, description: "Time the record was submitted."}
       - {name: version_id, description: "Record version number."}
-  - name: bronze_mpc
+  - name: bronze_nasa_donki_magnetopause_crossings
     description: "DONKI Magnetopause Crossing events. Child tables: instruments, linked_events."
     columns:
       - {name: mpc_id, description: "Unique magnetopause-crossing identifier. Primary key.", data_tests: [not_null, unique]}
@@ -133,7 +133,7 @@ models:
       - {name: link, description: "URL to the DONKI web record."}
       - {name: submission_time, description: "Time the record was submitted."}
       - {name: version_id, description: "Record version number."}
-  - name: bronze_rbe
+  - name: bronze_nasa_donki_radiation_belt_enhancements
     description: "DONKI Radiation Belt Enhancement events. Child tables: instruments, linked_events."
     columns:
       - {name: rbe_id, description: "Unique radiation-belt-enhancement identifier. Primary key.", data_tests: [not_null, unique]}
@@ -141,7 +141,7 @@ models:
       - {name: link, description: "URL to the DONKI web record."}
       - {name: submission_time, description: "Time the record was submitted."}
       - {name: version_id, description: "Record version number."}
-  - name: bronze_hss
+  - name: bronze_nasa_donki_high_speed_streams
     description: "DONKI High Speed Stream events. Child tables: instruments, linked_events."
     columns:
       - {name: hss_id, description: "Unique high-speed-stream identifier. Primary key.", data_tests: [not_null, unique]}
@@ -149,7 +149,7 @@ models:
       - {name: link, description: "URL to the DONKI web record."}
       - {name: submission_time, description: "Time the record was submitted."}
       - {name: version_id, description: "Record version number."}
-  - name: bronze_wsa_enlil_simulations
+  - name: bronze_nasa_donki_wsa_enlil_simulations
     description: >
       DONKI WSA-Enlil heliospheric model runs. Child tables: cme_inputs, impact_list.
     columns:
@@ -165,7 +165,7 @@ models:
       - {name: kp_180, description: "Predicted Kp index at +180h."}
       - {name: is_earth_gb, description: "True if Earth is glancing-blow impacted."}
       - {name: link, description: "URL to the DONKI web record."}
-  - name: bronze_notifications
+  - name: bronze_nasa_donki_notifications
     description: "DONKI space-weather notifications/reports of all message types."
     columns:
       - {name: message_id, description: "Unique notification identifier. Primary key.", data_tests: [not_null, unique]}

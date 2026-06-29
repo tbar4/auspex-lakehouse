@@ -27,10 +27,10 @@ def _snapshot_resource(name, cls, primary_key, segments, write_disposition, min_
 
 SNAPSHOT_CLASSES = [
     # (name, class, primary_key, segments, write_disposition, min_rows)
-    ("gp",       "gp",       "NORAD_CAT_ID",
+    ("space_track_general_perturbations", "gp",       "NORAD_CAT_ID",
      ("orderby", "NORAD_CAT_ID"),                         "merge",   10000),
-    ("satcat",   "satcat",   "NORAD_CAT_ID",
+    ("space_track_satellite_catalog",     "satcat",   "NORAD_CAT_ID",
      ("CURRENT", "Y", "orderby", "NORAD_CAT_ID"),         "merge",   10000),
-    ("boxscore", "boxscore", None,
+    ("space_track_boxscore",              "boxscore", None,
      (),                                                   "replace", None),
 ]

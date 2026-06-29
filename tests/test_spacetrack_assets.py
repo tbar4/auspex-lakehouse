@@ -7,7 +7,7 @@ def _load():
 
 
 def test_spacetrack_asset_keys():
-    """All six space-track assets must produce provider-scoped dlt_spacetrack_<name> keys."""
+    """All six space-track assets must produce provider-scoped dlt_space_track_<name> keys."""
     a = _load()
     asset_defs = [
         a.spacetrack_gp_assets,
@@ -19,12 +19,12 @@ def test_spacetrack_asset_keys():
     ]
     all_keys = {key for ad in asset_defs for key in ad.keys}
     expected = {
-        AssetKey("dlt_spacetrack_gp"),
-        AssetKey("dlt_spacetrack_satcat"),
-        AssetKey("dlt_spacetrack_boxscore"),
-        AssetKey("dlt_spacetrack_decay"),
-        AssetKey("dlt_spacetrack_cdm"),
-        AssetKey("dlt_spacetrack_tip"),
+        AssetKey("dlt_space_track_general_perturbations"),
+        AssetKey("dlt_space_track_satellite_catalog"),
+        AssetKey("dlt_space_track_boxscore"),
+        AssetKey("dlt_space_track_decays"),
+        AssetKey("dlt_space_track_conjunction_data_messages"),
+        AssetKey("dlt_space_track_tracking_and_impact_predictions"),
     }
     assert all_keys == expected, f"Unexpected asset keys: {all_keys}"
 

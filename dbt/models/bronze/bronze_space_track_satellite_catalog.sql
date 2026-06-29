@@ -1,3 +1,3 @@
 {{ config(materialized='view') }}
 select * exclude (_dlt_id, _dlt_load_id)
-from {{ source('bronze', 'wsa_enlil_simulations') }}
+from {{ source('bronze', 'space_track_satellite_catalog') }}

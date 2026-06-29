@@ -10,6 +10,8 @@ from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
 from dagster_dlt.translator import DltResourceTranslatorData
 
 from auspex_lakehouse.bronze.dlt.sources import (
+    celestrak_pipelines,
+    celestrak_source,
     donki_source,
     incremental_source,
     login_session,
@@ -21,6 +23,7 @@ from auspex_lakehouse.bronze.dlt.sources import (
     snapshot_source,
     spacetrack_pipelines,
 )
+from auspex_lakehouse.bronze.dlt.sources.celestrak.config import CELESTRAK_API_POOL
 from auspex_lakehouse.bronze.dlt.sources.nasa._common import nasa_api_key
 from auspex_lakehouse.bronze.dlt.sources.nasa.config import (
     NASA_API_POOL,
@@ -39,6 +42,7 @@ from auspex_lakehouse.resources.delta import bronze_table_exists, read_bronze_ta
 class NasaDltTranslator(DagsterDltTranslator):
     def get_asset_spec(self, data: DltResourceTranslatorData):
         return super().get_asset_spec(data).replace_attributes(
+            key=AssetKey(f"dlt_{data.resource.name}"),
             automation_condition=AutomationCondition.on_cron("0 6 * * *"),
         )
 
@@ -67,16 +71,18 @@ def nasa_api_assets(
     yield from dlt.run(context=context, dlt_source=source)
 
 @asset(
-    name="apod_images",
+    name="nasa_astronomy_picture_of_the_day_images",
     group_name="nasa",
     partitions_def=daily_partitions,
-    deps=[AssetKey(["dlt_nasa_api_apod"])],
+    deps=[AssetKey(["dlt_nasa_astronomy_picture_of_the_day"])],
     automation_condition=AutomationCondition.eager(),
 )
 def apod_images(context: AssetExecutionContext):
     partition_key = context.partition_key
 
-    df = read_bronze_table("apod").filter(pl.col("date") == partition_key)
+    df = read_bronze_table("nasa_astronomy_picture_of_the_day").filter(
+        pl.col("date") == partition_key
+    )
 
     s3 = boto3.client(
         "s3",
@@ -93,7 +99,7 @@ def apod_images(context: AssetExecutionContext):
             continue
 
         filename = PurePosixPath(hd_url).name
-        object_key = f"bronze/apod_images/{partition_key}_{filename}"
+        object_key = f"bronze/nasa_astronomy_picture_of_the_day_images/{partition_key}_{filename}"
 
         img_resp = requests.get(hd_url, timeout=60)
         img_resp.raise_for_status()
@@ -119,9 +125,11 @@ def _existing_lookup_index() -> dict[str, datetime]:
     to either, and coerce naive timestamps to UTC so the staleness subtraction in
     ``select_neo_work_ids`` doesn't raise on naive/aware mixing. Keys are coerced
     to ``str`` so they compare equal to the str-coerced candidates."""
-    if not bronze_table_exists("neo_lookup"):
+    if not bronze_table_exists("nasa_near_earth_object_lookups"):
         return {}
-    df = read_bronze_table("neo_lookup").select(["neo_reference_id", "lookup_fetched_at"])
+    df = read_bronze_table("nasa_near_earth_object_lookups").select(
+        ["neo_reference_id", "lookup_fetched_at"]
+    )
     index: dict[str, datetime] = {}
     for row in df.iter_rows(named=True):
         ts = row["lookup_fetched_at"]
@@ -136,19 +144,20 @@ def _existing_lookup_index() -> dict[str, datetime]:
 
 
 @asset(
-    name="neo_lookup",
+    name="nasa_near_earth_object_lookups",
     group_name="nasa",
     partitions_def=daily_partitions,
-    deps=[AssetKey(["dlt_nasa_api_neows"])],
+    deps=[AssetKey(["dlt_nasa_near_earth_object_feed"])],
     automation_condition=AutomationCondition.eager(),
     pool=NASA_API_POOL,
 )
 def neo_lookup(context: AssetExecutionContext):
     partition_key = context.partition_key
-    # neows table is guaranteed to exist by the dlt_nasa_api_neows dep above.
+    # nasa_near_earth_object_feed table is guaranteed to exist by the
+    # dlt_nasa_near_earth_object_feed dep above.
     candidates = {
         str(neo_id)  # coerce so candidate IDs compare equal to str-keyed existing index
-        for neo_id in read_bronze_table("neows")
+        for neo_id in read_bronze_table("nasa_near_earth_object_feed")
         .filter(pl.col("date") == partition_key)
         .get_column("neo_reference_id")
         .to_list()
@@ -196,8 +205,16 @@ def neo_lookup(context: AssetExecutionContext):
 
 # Staggered after SATCAT's 1700 UTC update; off-the-hour minutes (they serialize on
 # the pool regardless, but staggering keeps the scheduler tidy).
-_ST_SNAPSHOT_CRON = {"gp": "11 18 * * *", "satcat": "21 18 * * *", "boxscore": "31 18 * * *"}
-_ST_INCREMENTAL_CRON = {"decay": "41 18 * * *", "cdm": "46 18 * * *", "tip": "51 18 * * *"}
+_ST_SNAPSHOT_CRON = {
+    "space_track_general_perturbations": "11 18 * * *",
+    "space_track_satellite_catalog": "21 18 * * *",
+    "space_track_boxscore": "31 18 * * *",
+}
+_ST_INCREMENTAL_CRON = {
+    "space_track_decays": "41 18 * * *",
+    "space_track_conjunction_data_messages": "46 18 * * *",
+    "space_track_tracking_and_impact_predictions": "51 18 * * *",
+}
 
 
 class SpaceTrackDltTranslator(DagsterDltTranslator):
@@ -207,7 +224,7 @@ class SpaceTrackDltTranslator(DagsterDltTranslator):
 
     def get_asset_spec(self, data: DltResourceTranslatorData):
         return super().get_asset_spec(data).replace_attributes(
-            key=AssetKey(f"dlt_spacetrack_{data.resource.name}"),
+            key=AssetKey(f"dlt_{data.resource.name}"),
             automation_condition=AutomationCondition.on_cron(self._cron),
         )
 
@@ -254,17 +271,20 @@ def _spacetrack_incremental_assets(name: str):
     return _assets
 
 
-spacetrack_gp_assets = _spacetrack_snapshot_assets("gp")
-spacetrack_satcat_assets = _spacetrack_snapshot_assets("satcat")
-spacetrack_boxscore_assets = _spacetrack_snapshot_assets("boxscore")
-spacetrack_decay_assets = _spacetrack_incremental_assets("decay")
-spacetrack_cdm_assets = _spacetrack_incremental_assets("cdm")
-spacetrack_tip_assets = _spacetrack_incremental_assets("tip")
+spacetrack_gp_assets = _spacetrack_snapshot_assets("space_track_general_perturbations")
+spacetrack_satcat_assets = _spacetrack_snapshot_assets("space_track_satellite_catalog")
+spacetrack_boxscore_assets = _spacetrack_snapshot_assets("space_track_boxscore")
+spacetrack_decay_assets = _spacetrack_incremental_assets("space_track_decays")
+spacetrack_cdm_assets = _spacetrack_incremental_assets("space_track_conjunction_data_messages")
+spacetrack_tip_assets = _spacetrack_incremental_assets(
+    "space_track_tracking_and_impact_predictions"
+)
 
 
 class DonkiDltTranslator(DagsterDltTranslator):
     def get_asset_spec(self, data: DltResourceTranslatorData):
         return super().get_asset_spec(data).replace_attributes(
+            key=AssetKey(f"dlt_{data.resource.name}"),
             automation_condition=AutomationCondition.on_cron("0 7 * * *"),
         )
 
@@ -285,3 +305,32 @@ def donki_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
         end_date=date.fromisoformat(rng.end),
     )
     yield from dlt.run(context=context, dlt_source=source)
+
+
+# ---- CelesTrak: public CSV space-weather file; one snapshot-merge asset ----
+
+
+class CelesTrakDltTranslator(DagsterDltTranslator):
+    def get_asset_spec(self, data: DltResourceTranslatorData):
+        return super().get_asset_spec(data).replace_attributes(
+            # resource name already = celestrak_space_weather
+            key=AssetKey(f"dlt_{data.resource.name}"),
+            automation_condition=AutomationCondition.on_cron("30 5 * * *"),
+        )
+
+
+@dlt_assets(
+    dlt_source=celestrak_source("celestrak_space_weather"),
+    dlt_pipeline=celestrak_pipelines["celestrak_space_weather"],
+    name="celestrak_space_weather_bronze",
+    group_name="celestrak",
+    # NO partitions_def — whole-file current-state snapshot
+    dagster_dlt_translator=CelesTrakDltTranslator(),
+    pool=CELESTRAK_API_POOL,
+)
+def celestrak_space_weather_assets(
+    context: AssetExecutionContext, dlt: DagsterDltResource
+):
+    yield from dlt.run(
+        context=context, dlt_source=celestrak_source("celestrak_space_weather")
+    )
