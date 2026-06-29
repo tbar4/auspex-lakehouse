@@ -33,7 +33,8 @@ ENV PATH="/opt/dagster/app/.venv/bin:${PATH}"
 # Bake the dbt manifest into the image so the code location loads without a dev parse.
 # DBT_PROFILES_DIR=. uses profiles.yml from the dbt/ directory (env_var defaults → no MinIO needed).
 RUN cd /opt/dagster/app/dbt && DBT_PROFILES_DIR=. dbt deps && DBT_PROFILES_DIR=. dbt parse
-ENV DBT_PROJECT_DIR=/opt/dagster/app/dbt
+ENV DBT_PROJECT_DIR=/opt/dagster/app/dbt \
+    DBT_PROFILES_DIR=/opt/dagster/app/dbt
 
 EXPOSE 4000
 
