@@ -11,6 +11,8 @@ dependencies = [
     # container, and the run worker must load the Postgres storage from the instance ref.
     "dagster-postgres>=0.29.11",
     "dbt>=1.0.0.40.18",
+    "dbt-duckdb>=1.10.1",
+    "duckdb>=1.5.4",
     "dlt[deltalake,s3]>=1.28.1",
     # LTS-CPU build: no AVX2 required, so the x86_64 image runs on older CPUs such
     # as the Synology NAS Celeron/Atom (stock `polars` SIGILLs there). It ships

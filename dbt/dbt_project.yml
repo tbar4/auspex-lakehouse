@@ -1,0 +1,9 @@
+name: auspex_lakehouse
+version: "1.0.0"
+profile: auspex_lakehouse
+model-paths: ["models"]
+
+models:
+  auspex_lakehouse:
+    bronze:
+      +materialized: view
