@@ -33,3 +33,15 @@ sources:
         meta: {dagster: {asset_key: ["dlt_nasa_donki_wsa_enlil_simulations"]}}
       - name: notifications
         meta: {dagster: {asset_key: ["dlt_nasa_donki_notifications"]}}
+      - name: gp
+        meta: {dagster: {asset_key: ["dlt_spacetrack_gp"]}}
+      - name: satcat
+        meta: {dagster: {asset_key: ["dlt_spacetrack_satcat"]}}
+      - name: boxscore
+        meta: {dagster: {asset_key: ["dlt_spacetrack_boxscore"]}}
+      - name: decay
+        meta: {dagster: {asset_key: ["dlt_spacetrack_decay"]}}
+      - name: cdm
+        meta: {dagster: {asset_key: ["dlt_spacetrack_cdm"]}}
+      - name: tip
+        meta: {dagster: {asset_key: ["dlt_spacetrack_tip"]}}

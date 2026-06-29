@@ -1,0 +1,27 @@
+version: 2
+models:
+  - name: bronze_gp
+    columns: [{name: norad_cat_id, data_tests: [not_null, unique]}]
+  - name: bronze_satcat
+    columns: [{name: norad_cat_id, data_tests: [not_null, unique]}]
+  - name: bronze_boxscore
+    columns: [{name: country, data_tests: [not_null]}]
+  - name: bronze_decay
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [norad_cat_id, msg_epoch, precedence]
+    columns:
+      - {name: norad_cat_id, data_tests: [not_null]}
+      - {name: msg_epoch, data_tests: [not_null]}
+      - {name: precedence, data_tests: [not_null]}
+  - name: bronze_cdm
+    columns: [{name: cdm_id, data_tests: [not_null, unique]}]
+  - name: bronze_tip
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [norad_cat_id, msg_epoch]
+    columns:
+      - {name: norad_cat_id, data_tests: [not_null]}
+      - {name: msg_epoch, data_tests: [not_null]}
