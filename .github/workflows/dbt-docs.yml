@@ -1,0 +1,71 @@
+name: dbt docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dbt/**"
+      - ".github/workflows/dbt-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent Pages deployment; don't cancel an in-progress deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build dbt docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # --empty-catalog: no warehouse connection (and no dependence on the
+      # MinIO Delta tables existing). The profile's env_var defaults make this
+      # run without any MINIO_* secrets. --static bundles manifest + catalog
+      # into one self-contained static_index.html.
+      - name: Generate dbt docs
+        working-directory: dbt
+        env:
+          DBT_PROFILES_DIR: "."
+        run: |
+          uv run --no-sync dbt deps
+          uv run --no-sync dbt docs generate --static --empty-catalog
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p _site
+          cp dbt/target/static_index.html _site/index.html
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
