@@ -13,3 +13,12 @@ storage:
       db_name:
         env: DAGSTER_POSTGRES_DB
       port: 5432
+
+# Serialize NASA API access so concurrent runs can't both burn the shared
+# 1000-calls/hour budget (the budget is one bucket; parallel streams only
+# mutually 429 and double-spend). Other providers get their own pools.
+concurrency:
+  pools:
+    nasa_api:
+      limit: 1
+      granularity: 'op'

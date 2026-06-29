@@ -269,8 +269,11 @@ The asset declares `@asset(..., pool="nasa_api")`.
 order of importance:
 1. **The API's own 429** (Component 2's fetcher rides up to the limit, then stops
    and defers) — this is the real ceiling.
-2. **The hourly cadence + dedupe** — each run resumes the deferred/new work; the
-   initial backfill drains over successive hours without redoing fetched IDs.
+2. **The daily cadence + dedupe** — `AutomationCondition.eager()` on the daily-partitioned
+   asset re-materializes the current day's partition each day, resuming deferred/new work
+   without redoing already-fetched IDs. A historical backfill partition that 429s does NOT
+   auto-resume under `eager()` once it has succeeded; full hourly drain depends on the
+   per-provider rate-budget scheduler, which is out of scope.
 3. **The pool (limit 1)** — serializes access so two runs can't both burn the
    shared bucket at once, and prevents dlt pipeline-state races.
 
@@ -306,7 +309,7 @@ neows feed (dlt) ─► bronze/neows (Delta)
 | `neo_lookup` table absent (first run) | `_existing_lookup_index()` returns `{}`; all candidates are *new* |
 | Empty work list | Asset short-circuits; zero-count metadata; no API calls |
 | Cap reached | Excess IDs reported via `deferred_over_cap`; fetched next run |
-| Backfill fan-out | Serialized by the `nasa_api` concurrency pool (limit 1, Component 5); spend drains over successive hourly runs |
+| Backfill fan-out | Serialized by the `nasa_api` concurrency pool (limit 1, Component 5); in steady state the current day's partition re-materializes daily under `eager()` and resumes deferred/new work; a backfill partition that 429s does not auto-resume once it has succeeded — full hourly drain requires the per-provider rate-budget scheduler (out of scope) |
 
 ## Testing
 

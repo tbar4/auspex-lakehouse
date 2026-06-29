@@ -3,6 +3,10 @@ from datetime import date
 import dlt
 
 from auspex_lakehouse.bronze.dlt.sources.nasa.apod import apod
+from auspex_lakehouse.bronze.dlt.sources.nasa.neo_lookup import (
+    nasa_neo_lookup_pipeline,
+    neo_lookup_rows,
+)
 from auspex_lakehouse.bronze.dlt.sources.nasa.neows import neows
 
 
@@ -20,4 +24,11 @@ nasa_pipeline = dlt.pipeline(
     dataset_name="bronze",
 )
 
-__all__ = ["apod", "neows", "nasa_api", "nasa_pipeline"]
+__all__ = [
+    "apod",
+    "neows",
+    "nasa_api",
+    "nasa_pipeline",
+    "neo_lookup_rows",
+    "nasa_neo_lookup_pipeline",
+]
