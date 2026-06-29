@@ -372,8 +372,9 @@ bound to the `celestrak_api` pool.
 
 - Model-level docs/tests (`_bronze__celestrak__models.yml`) follow the convention from the
   bronze-dbt-docs work: at minimum a `not_null`/`unique` test on the **normalized** column
-  `date` (lowercase — see column normalization above). Note `date` is a DuckDB type keyword,
-  so the generated test predicate must quote it (`"date"`).
+  `date` (lowercase — see column normalization above). (`date` is a DuckDB non-reserved
+  keyword; verified empirically against DuckDB 1.10.1 — bare unquoted `date` works in
+  `select * exclude`, the `not_null` predicate, and the `unique` test render. No quoting needed.)
 
 ## Error Handling
 

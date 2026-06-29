@@ -686,7 +686,7 @@ Run:
 ```bash
 cd dbt && DBT_PROFILES_DIR="$PWD" uv run dbt build --select bronze_celestrak_space_weather && cd ..
 ```
-Expected: the view builds and the `not_null`/`unique` test on `date` passes. (If DuckDB rejects the bare `date` identifier as a keyword, quote it in the model yml per the spec note and re-run.)
+Expected: the view builds and the `not_null`/`unique` test on `date` passes. (`date` is a DuckDB non-reserved keyword — verified against DuckDB 1.10.1 that bare unquoted `date` works in the `select * exclude`, `not_null`, and `unique` renders; no quoting needed.)
 
 ---
 
