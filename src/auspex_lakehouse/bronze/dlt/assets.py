@@ -3,7 +3,6 @@ from datetime import date, datetime, timezone
 from pathlib import PurePosixPath
 
 import boto3
-import dlt
 import polars as pl
 import requests
 from dagster import AssetExecutionContext, AssetKey, AutomationCondition, asset
@@ -16,6 +15,7 @@ from auspex_lakehouse.bronze.dlt.sources import (
     nasa_pipeline,
     neo_lookup_rows,
 )
+from auspex_lakehouse.bronze.dlt.sources.nasa._common import nasa_api_key
 from auspex_lakehouse.bronze.dlt.sources.nasa.config import (
     NASA_API_POOL,
     NASA_MAX_LOOKUPS_PER_RUN,
@@ -137,6 +137,7 @@ def _existing_lookup_index() -> dict[str, datetime]:
 )
 def neo_lookup(context: AssetExecutionContext):
     partition_key = context.partition_key
+    # neows table is guaranteed to exist by the dlt_nasa_api_neows dep above.
     candidates = {
         str(neo_id)  # coerce so candidate IDs compare equal to str-keyed existing index
         for neo_id in read_bronze_table("neows")
@@ -154,9 +155,20 @@ def neo_lookup(context: AssetExecutionContext):
         context.add_output_metadata({"candidates": len(candidates), "fetched_ok": 0})
         return
 
-    rows, stats = fetch_neo_lookups(plan.selected, now.isoformat(), dlt.secrets["nasa_api_key"])
+    rows, stats = fetch_neo_lookups(plan.selected, now.isoformat(), nasa_api_key())
     if rows:
         nasa_neo_lookup_pipeline.run(neo_lookup_rows(rows))
+
+    if stats.stopped_on_rate_limit:
+        context.log.warning(
+            f"NEO lookup hit the NASA rate limit for partition {partition_key}; "
+            f"deferred {len(stats.deferred_on_stop)} id(s) to a future run."
+        )
+    if plan.deferred_over_cap:
+        context.log.warning(
+            f"NEO lookup cap reached for partition {partition_key}; deferred "
+            f"{len(plan.deferred_over_cap)} id(s) over NASA_MAX_LOOKUPS_PER_RUN to a future run."
+        )
 
     context.add_output_metadata(
         {

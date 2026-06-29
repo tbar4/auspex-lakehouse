@@ -90,3 +90,21 @@ def test_fetch_other_error_raises(monkeypatch):
     monkeypatch.setattr(nl, "requests", Mock(get=Mock(return_value=_resp(500))))
     with pytest.raises(RuntimeError):
         nl.fetch_neo_lookups(["x"], "T", "key")
+
+
+def test_age_equal_to_refresh_window_is_not_stale():
+    existing = {"a": NOW - timedelta(days=30)}
+    plan = select_neo_work_ids({"a"}, existing, NOW, 30, 500)
+    assert plan.stale == []
+    assert plan.selected == []
+
+
+def test_fetch_404_continues_to_next_id(monkeypatch):
+    seq = [_resp(404), _resp(200, {"neo_reference_id": "live"})]
+    monkeypatch.setattr(nl, "requests", Mock(get=Mock(side_effect=seq)))
+    rows, stats = nl.fetch_neo_lookups(["dead", "live"], "T", "key")
+    assert len(rows) == 2
+    assert stats.tombstoned == 1
+    assert stats.fetched_ok == 1
+    assert rows[0]["lookup_status"] == "not_found"
+    assert rows[1]["lookup_status"] == "ok"

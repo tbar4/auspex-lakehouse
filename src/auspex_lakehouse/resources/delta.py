@@ -1,5 +1,8 @@
 import os
 
+import polars as pl
+from deltalake import DeltaTable
+
 try:
     from dagster_deltalake import S3Config
     from dagster_deltalake_polars import DeltaLakePolarsIOManager
@@ -18,10 +21,6 @@ try:
     )
 except ImportError:
     delta_io_manager = None  # type: ignore[assignment]
-
-
-import polars as pl
-from deltalake import DeltaTable
 
 
 def _bronze_table_uri(name: str) -> str:
