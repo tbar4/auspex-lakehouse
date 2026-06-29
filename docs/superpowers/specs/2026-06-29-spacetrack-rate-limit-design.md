@@ -1,17 +1,26 @@
 # Space-Track Rate-Limit Enforcement + Test-Host Switch — Design
 
 **Date:** 2026-06-29
-**Status:** Approved (design); pending implementation plan
+**Status:** Approved (design, post adversarial review); pending implementation plan
 **Builds on:** the existing space-track provider (`2026-06-28-spacetrack-design.md`).
 This change is confined to `sources/spacetrack/_common.py` and `config.py`; it does **not**
 touch the assets, scheduling, the `spacetrack_api` pool, or the snapshot/incremental factories.
 
 ## Goal
 
-Make the space-track source **physically unable** to exceed space-track.org's published API
-limits — **< 30 requests / minute** and **< 300 requests / hour** — during any single run,
-and wire a sanctioned escape hatch for unlimited testing/backfill against
-`https://for-testing-only.space-track.org`.
+Keep the space-track source within space-track.org's published API limits — **< 30 requests /
+minute** and **< 300 requests / hour** — through two complementary mechanisms:
+
+1. An **in-process per-run rate limiter** that bounds requests within any single run/process.
+   This makes the **scheduled daily runs** (the only prod traffic) provably compliant and is a
+   safety net for any single run that issues many requests.
+2. A **test-host switch** (`https://for-testing-only.space-track.org`) that is the **sanctioned
+   path for backfill** — backfill is where the limits are actually at risk, and the limiter
+   alone does **not** bound it (see *Backfill compliance* below).
+
+This split is deliberate and was confirmed by adversarial review: the limiter is correct and
+sufficient for steady-state prod, but the test host — not the limiter — is what makes backfill
+safe.
 
 ## Why (current-state audit)
 
@@ -33,12 +42,39 @@ and wire a sanctioned escape hatch for unlimited testing/backfill against
 |----------|--------|
 | Enforcement model | **In-process rate limiter** + **env-toggled test-host switch** |
 | Host switch | Boolean env `SPACETRACK_USE_TEST_HOST` (default `false`). `false` → `BASE_URL` + throttle ON; `true` → `DEV_BASE_URL` + throttle OFF |
-| Throttle scope | **Per-run (in-process)** — paces requests within a run; covers the wide-range single-run backfill (the real risk). Heavy multi-run backfills use the test host. NOT cross-run durable. |
-| Limits | `SPACETRACK_MAX_PER_MIN = 25`, `SPACETRACK_MAX_PER_HOUR = 250` — deliberately **under** the 30/300 ceilings for headroom (login+probe overhead, clock jitter). Tunable constants in `config.py`. |
+| Throttle scope | **Per-run (in-process) safety net.** Bounds requests within any single run/process — makes scheduled daily runs provably compliant. Does **NOT** bound the default per-partition multi-run backfill (each partition is a fresh process; the limiter resets). Backfill compliance comes from the **test host**, not the throttle. NOT cross-run durable. |
+| Backfill | **Use the test host** (`SPACETRACK_USE_TEST_HOST=true`). The assets are deliberately left unchanged (no `BackfillPolicy`), so a prod backfill is the default per-partition multi-run that the throttle cannot pace. See *Backfill compliance*. |
+| Limits | `SPACETRACK_MAX_PER_MIN = 25`, `SPACETRACK_MAX_PER_HOUR = 250` — conservatively **under** the 30/300 ceilings (login+probe are counted, so this is plain headroom for clock jitter, not extra room for them). Tunable constants in `config.py`. |
 | Counted requests | **All three** API call sites: login `POST`, auth-probe `GET`, and every `query_class` `GET`. |
 | Test-host throttle | **Bypassed** when the test host is on (the entire point of the test host). |
 | Files touched | `sources/spacetrack/_common.py`, `sources/spacetrack/config.py` (+ tests) |
 | Base branch | `feat/spacetrack-rate-limit` off `main` |
+
+## Backfill compliance (explicit)
+
+The in-process limiter **does not** make a prod backfill compliant, and this is intentional —
+the adversarial review confirmed why:
+
+- The incremental assets (`decay`/`cdm`/`tip`) set **no `BackfillPolicy`**, so Dagster backfills
+  them **one run per partition**. Under the deployed `DefaultRunLauncher` each run is a **fresh
+  subprocess** with a fresh module-level `_LIMITER`, so the limiter resets every run and cannot
+  bound the cross-run request rate. ~3 requests/run firing as fast as the `spacetrack_api` pool
+  frees can exceed 30/min.
+- We deliberately do **not** add a single-run backfill policy (that would expand scope into the
+  assets and let one op `time.sleep` for up to ~an hour while holding the shared `spacetrack_api`
+  pool slot, starving the daily scheduled classes).
+
+**Therefore the sanctioned way to backfill is the test host:** set `SPACETRACK_USE_TEST_HOST=true`
+and backfill against `for-testing-only.space-track.org`, which has no limits (and the throttle is
+bypassed there anyway). Prod backfill, if ever truly needed, has **no automated guard** and must be
+done gently by hand — but the expectation is that backfill goes to the test host.
+
+> **⚠ Test-host data caveat (verify-live).** The test host is space-track's sandbox mirror; its
+> dataset is **not guaranteed identical** to prod (may be stale or sampled). Because both hosts
+> write into the **same** bronze Delta tables (`dataset_name="bronze"`), backfilling with the
+> toggle on lands test-host rows in **production** bronze. Before using it to backfill tables you
+> rely on, confirm the test host returns prod-equivalent data for the classes in question; if not,
+> treat the test host as for **connectivity/throttle testing only**, not data backfill.
 
 ## Component 1 — Host switch (`_common.py`)
 
@@ -73,7 +109,10 @@ A sliding-window limiter enforcing **two windows simultaneously** (per-minute an
 `acquire()` drops expired timestamps, computes the longest wait across both windows, sleeps if
 needed, then records the request. `now`/`sleep` are injectable so tests drive a fake clock
 (no real sleeping). A `threading.Lock` guards the deque (the `spacetrack_api` pool already
-serializes ops, so this is cheap insurance, not load-bearing).
+serializes ops, so this is cheap insurance, not load-bearing). The lock is held across the
+`sleep` — fine under dlt's single-threaded extraction; if a resource were ever marked
+`@dlt.resource(parallelized=True)`, one waiter would serialize all extraction, so don't combine
+this limiter with parallelized space-track resources.
 
 ```python
 import threading
@@ -162,18 +201,26 @@ Add the tunable caps next to the existing rate-limit documentation table:
 
 ```python
 # Hard request-rate caps enforced in-process by the _RateLimiter in _common.py.
-# Set UNDER space-track's published ceilings (<30/min, <300/hr) for headroom against
-# the per-run login+probe overhead and clock jitter. Tune if backfills feel too slow
-# — or flip SPACETRACK_USE_TEST_HOST=true to backfill against the unlimited test host.
+# Login POST + auth probe + each query GET are ALL counted. Set conservatively under
+# space-track's published ceilings (<30/min, <300/hr) — plain headroom for clock jitter.
+# These bound a single run only; to backfill, flip SPACETRACK_USE_TEST_HOST=true and use
+# the unlimited test host (the throttle does NOT pace multi-run backfills — see design).
 SPACETRACK_MAX_PER_MIN = 25
 SPACETRACK_MAX_PER_HOUR = 250
 ```
 
 ## Operational note (docs)
 
-In-process throttling guarantees compliance for any single run. For heavy multi-run backfills
-against prod, the guidance is: set `SPACETRACK_USE_TEST_HOST=true` and backfill against the
-unlimited host. Add `SPACETRACK_USE_TEST_HOST` to `.env.example` (commented, default off).
+- In-process throttling guarantees compliance for any single run; backfill goes to the test host
+  (see *Backfill compliance*).
+- **The toggle is container-global and not per-run.** `_use_test_host()` reads the env of the
+  `auspex_user_code` container, which is fixed at container start from `.env`. Flipping it means
+  editing `.env` and **restarting `auspex_user_code`**, which points **every** space-track run —
+  including the daily scheduled crons — at the test host until flipped back. Safe procedure:
+  **pause the space-track schedules** (or run the backfill in a window where they don't fire),
+  flip the toggle, backfill, then revert and unpause. There is no per-asset/per-run override.
+- Add `SPACETRACK_USE_TEST_HOST` to `.env.example` (commented, default off). The deployed `.env`
+  must carry it for the toggle to be reachable in the container.
 
 ## Error Handling
 
@@ -188,13 +235,22 @@ unlimited host. Add `SPACETRACK_USE_TEST_HOST` to `.env.example` (commented, def
 
 All mocked — no real HTTP, no real sleeping (inject fake `now`/`sleep`).
 
+- **Fake-clock contract (load-bearing).** `acquire()` is `while True: ... sleep(wait)`, so the
+  injected `sleep` **must advance the injected `now`** by `wait` — otherwise `now` is unchanged on
+  re-entry, the wait recomputes identically, and `acquire()` **busy-loops forever**. The limiter
+  tests use a single fake clock object whose `sleep(dt)` increments its own `now()` by `dt`; pass
+  its `now`/`sleep` into `_RateLimiter(...)`. Spell this out in the plan so the tests don't hang.
+- **Singleton isolation.** The module-level `_LIMITER` is shared mutable state. Any test that
+  exercises the real `_throttle()` path must replace `_common._LIMITER` with a fresh
+  fake-clock `_RateLimiter` via a fixture (and restore it after), so timestamps don't accumulate
+  across tests or trip a real `time.sleep`.
 - **Host switch:** `_use_test_host()` is `False` when env unset and for non-truthy values;
   `True` for `1`/`true`/`yes` (case-insensitive). `_base_url()` returns `BASE_URL` by default,
   `DEV_BASE_URL` when the toggle is on.
 - **Limiter (fake clock):** under cap, `acquire()` does not sleep; the `(cap+1)`-th request
   within a window forces a `sleep` of the computed remaining-window duration; once the oldest
-  event expires, the next `acquire()` proceeds without sleeping; the per-hour window also trips
-  independently of the per-minute window.
+  event expires (fake clock advanced by the fake `sleep`), the next `acquire()` proceeds without
+  sleeping; the per-hour window also trips independently of the per-minute window.
 - **Counted call sites:** with the prod default, `login_session` invokes `_throttle()` for both
   the `POST` and the probe `GET`, and `query_class` invokes it for its `GET` (assert via a
   monkeypatched `_LIMITER.acquire` counter).
