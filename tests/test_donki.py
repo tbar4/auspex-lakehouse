@@ -6,7 +6,6 @@ from auspex_lakehouse.bronze.dlt.sources.nasa.donki import (
     DONKI_ENDPOINTS,
     _donki_resource,
     donki_source,
-    nasa_donki_pipeline,
 )
 
 
@@ -82,7 +81,3 @@ def test_exports_from_sources_package():
 
     assert p.pipeline_name == "nasa_donki"
     assert callable(ds)
-
-
-def test_pipeline_name():
-    assert nasa_donki_pipeline.pipeline_name == "nasa_donki"

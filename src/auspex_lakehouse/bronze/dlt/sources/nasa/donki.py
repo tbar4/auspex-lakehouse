@@ -43,7 +43,7 @@ DONKI_ENDPOINTS = [
     ("rbe",                   "RBE",                 "rbeID",                          None),
     ("hss",                   "HSS",                 "hssID",                          None),
     ("wsa_enlil_simulations", "WSAEnlilSimulations", "simulationID",                   None),
-    ("notifications", "notifications", "messageID", {"type": "all"}),
+    ("notifications",         "notifications",       "messageID",                  {"type": "all"}),
 ]
 
 

@@ -187,7 +187,9 @@ This follows the established `nasa_api_assets` runtime pattern (re-build the
 source for the actual partition range, then `dlt.run`). The `pool="nasa_api"`
 binding is the new ingredient — verified available on `dagster_dlt.dlt_assets` —
 giving an "≤1 NASA API op in flight" guarantee across apod/neows/neo_lookup/DONKI
-during backfills.
+during backfills. **Addendum (final-review):** `nasa_api_assets` (apod/neows) was also
+assigned `pool=NASA_API_POOL` alongside this feature, so ALL four NASA Dagster ops are
+pooled and shared `bronze/_dlt_*` writes are fully serialized with no gaps.
 
 ## CMEAnalysis caveat (accepted)
 
@@ -241,8 +243,8 @@ NEO-lookup work landed with.
 
 ## Out of Scope
 
-- Retrofitting apod/neows into the `nasa_api` pool (now that `dlt_assets` supports
-  `pool`) — a small optional cleanup, negligible volume, deferred.
+- ~~Retrofitting apod/neows into the `nasa_api` pool~~ — **Done** (completed in the
+  final-review fix wave; `nasa_api_assets` now carries `pool=NASA_API_POOL`). See Component 3 addendum above.
 - The per-provider hourly rate-budget scheduler (still future).
 - Silver-layer modeling of DONKI events; cross-endpoint `linkedEvents` graph.
 - Other providers (space-track.org, spaceflightnews, thespacedevs).

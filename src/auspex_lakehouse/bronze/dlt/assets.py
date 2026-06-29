@@ -48,6 +48,7 @@ class NasaDltTranslator(DagsterDltTranslator):
     group_name="nasa",
     partitions_def=daily_partitions,
     dagster_dlt_translator=NasaDltTranslator(),
+    pool=NASA_API_POOL,
 )
 def nasa_api_assets(
     context: AssetExecutionContext,
@@ -200,7 +201,7 @@ class DonkiDltTranslator(DagsterDltTranslator):
     group_name="donki",
     partitions_def=daily_partitions,
     dagster_dlt_translator=DonkiDltTranslator(),
-    pool="nasa_api",  # serialize DONKI runs against neo_lookup on the shared NASA budget
+    pool=NASA_API_POOL,  # serialize DONKI runs against neo_lookup on the shared NASA budget
 )
 def donki_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
     rng = context.partition_key_range
