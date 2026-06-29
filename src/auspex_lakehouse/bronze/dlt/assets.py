@@ -266,6 +266,7 @@ spacetrack_tip_assets = _spacetrack_incremental_assets("tip")
 class DonkiDltTranslator(DagsterDltTranslator):
     def get_asset_spec(self, data: DltResourceTranslatorData):
         return super().get_asset_spec(data).replace_attributes(
+            key=AssetKey(f"dlt_{data.resource.name}"),
             automation_condition=AutomationCondition.on_cron("0 7 * * *"),
         )
 

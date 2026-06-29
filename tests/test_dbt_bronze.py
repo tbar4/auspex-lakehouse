@@ -10,8 +10,13 @@ def test_20_bronze_assets_with_lineage():
         f"bronze_{t}"
         for t in [
             # NASA
-            "nasa_astronomy_picture_of_the_day", "nasa_near_earth_object_feed", "nasa_near_earth_object_lookups", "cme", "cme_analysis", "gst", "ips",
-            "flr", "sep", "mpc", "rbe", "hss", "wsa_enlil_simulations", "notifications",
+            "nasa_astronomy_picture_of_the_day", "nasa_near_earth_object_feed", "nasa_near_earth_object_lookups",
+            "nasa_donki_coronal_mass_ejections", "nasa_donki_coronal_mass_ejection_analyses",
+            "nasa_donki_geomagnetic_storms", "nasa_donki_interplanetary_shocks",
+            "nasa_donki_solar_flares", "nasa_donki_solar_energetic_particles",
+            "nasa_donki_magnetopause_crossings", "nasa_donki_radiation_belt_enhancements",
+            "nasa_donki_high_speed_streams", "nasa_donki_wsa_enlil_simulations",
+            "nasa_donki_notifications",
             # space-track
             "gp", "satcat", "boxscore", "decay", "cdm", "tip",
         ]
@@ -19,7 +24,7 @@ def test_20_bronze_assets_with_lineage():
     assert expected <= keys, f"missing: {expected - keys}"
     # lineage: a sample of the non-uniform source->dlt-key mapping
     assert AssetKey(["dlt_nasa_near_earth_object_feed"]) in ag.get(AssetKey(["bronze_nasa_near_earth_object_feed"])).parent_keys
-    assert AssetKey(["dlt_nasa_donki_cme"]) in ag.get(AssetKey(["bronze_cme"])).parent_keys
+    assert AssetKey(["dlt_nasa_donki_coronal_mass_ejections"]) in ag.get(AssetKey(["bronze_nasa_donki_coronal_mass_ejections"])).parent_keys
     assert AssetKey(["nasa_near_earth_object_lookups"]) in ag.get(AssetKey(["bronze_nasa_near_earth_object_lookups"])).parent_keys
     assert AssetKey(["dlt_spacetrack_gp"]) in ag.get(AssetKey(["bronze_gp"])).parent_keys
     assert AssetKey(["dlt_spacetrack_cdm"]) in ag.get(AssetKey(["bronze_cdm"])).parent_keys

@@ -1,3 +1,3 @@
 {{ config(materialized='view') }}
 select * exclude (_dlt_id, _dlt_load_id)
-from {{ source('bronze', 'flr') }}
+from {{ source('bronze', 'nasa_donki_coronal_mass_ejections') }}

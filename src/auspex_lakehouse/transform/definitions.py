@@ -14,19 +14,19 @@ _SOURCE_ASSET_KEYS = {
     "nasa_near_earth_object_feed": AssetKey(["dlt_nasa_near_earth_object_feed"]),
     "nasa_near_earth_object_lookups": AssetKey(["nasa_near_earth_object_lookups"]),
     **{
-        t: AssetKey([f"dlt_nasa_donki_{t}"])
+        t: AssetKey([f"dlt_{t}"])
         for t in [
-            "cme",
-            "cme_analysis",
-            "gst",
-            "ips",
-            "flr",
-            "sep",
-            "mpc",
-            "rbe",
-            "hss",
-            "wsa_enlil_simulations",
-            "notifications",
+            "nasa_donki_coronal_mass_ejections",
+            "nasa_donki_coronal_mass_ejection_analyses",
+            "nasa_donki_geomagnetic_storms",
+            "nasa_donki_interplanetary_shocks",
+            "nasa_donki_solar_flares",
+            "nasa_donki_solar_energetic_particles",
+            "nasa_donki_magnetopause_crossings",
+            "nasa_donki_radiation_belt_enhancements",
+            "nasa_donki_high_speed_streams",
+            "nasa_donki_wsa_enlil_simulations",
+            "nasa_donki_notifications",
         ]
     },
     "gp": AssetKey(["dlt_spacetrack_gp"]),

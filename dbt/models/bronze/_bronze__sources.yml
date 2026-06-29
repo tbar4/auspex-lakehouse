@@ -14,37 +14,37 @@ sources:
       - name: nasa_near_earth_object_lookups
         description: "Per-object NEO lookups enriched with orbital data; 'not_found' rows are 404 tombstones (api.nasa.gov /neo/rest/v1/neo/{id})."
         meta: {dagster: {asset_key: ["nasa_near_earth_object_lookups"]}}
-      - name: cme
+      - name: nasa_donki_coronal_mass_ejections
         description: "DONKI Coronal Mass Ejection events (api.nasa.gov /DONKI/CME)."
-        meta: {dagster: {asset_key: ["dlt_nasa_donki_cme"]}}
-      - name: cme_analysis
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_coronal_mass_ejections"]}}
+      - name: nasa_donki_coronal_mass_ejection_analyses
         description: "DONKI CME Analysis — kinematic measurements per CME (api.nasa.gov /DONKI/CMEAnalysis)."
-        meta: {dagster: {asset_key: ["dlt_nasa_donki_cme_analysis"]}}
-      - name: gst
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_coronal_mass_ejection_analyses"]}}
+      - name: nasa_donki_geomagnetic_storms
         description: "DONKI Geomagnetic Storm events (api.nasa.gov /DONKI/GST)."
-        meta: {dagster: {asset_key: ["dlt_nasa_donki_gst"]}}
-      - name: ips
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_geomagnetic_storms"]}}
+      - name: nasa_donki_interplanetary_shocks
         description: "DONKI Interplanetary Shock events (api.nasa.gov /DONKI/IPS)."
-        meta: {dagster: {asset_key: ["dlt_nasa_donki_ips"]}}
-      - name: flr
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_interplanetary_shocks"]}}
+      - name: nasa_donki_solar_flares
         description: "DONKI Solar Flare events (api.nasa.gov /DONKI/FLR)."
-        meta: {dagster: {asset_key: ["dlt_nasa_donki_flr"]}}
-      - name: sep
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_solar_flares"]}}
+      - name: nasa_donki_solar_energetic_particles
         description: "DONKI Solar Energetic Particle events (api.nasa.gov /DONKI/SEP)."
-        meta: {dagster: {asset_key: ["dlt_nasa_donki_sep"]}}
-      - name: mpc
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_solar_energetic_particles"]}}
+      - name: nasa_donki_magnetopause_crossings
         description: "DONKI Magnetopause Crossing events (api.nasa.gov /DONKI/MPC)."
-        meta: {dagster: {asset_key: ["dlt_nasa_donki_mpc"]}}
-      - name: rbe
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_magnetopause_crossings"]}}
+      - name: nasa_donki_radiation_belt_enhancements
         description: "DONKI Radiation Belt Enhancement events (api.nasa.gov /DONKI/RBE)."
-        meta: {dagster: {asset_key: ["dlt_nasa_donki_rbe"]}}
-      - name: hss
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_radiation_belt_enhancements"]}}
+      - name: nasa_donki_high_speed_streams
         description: "DONKI High Speed Stream events (api.nasa.gov /DONKI/HSS)."
-        meta: {dagster: {asset_key: ["dlt_nasa_donki_hss"]}}
-      - name: wsa_enlil_simulations
+        meta: {dagster: {asset_key: ["dlt_nasa_donki_high_speed_streams"]}}
+      - name: nasa_donki_wsa_enlil_simulations
         description: "DONKI WSA-Enlil heliospheric model simulations (api.nasa.gov /DONKI/WSAEnlilSimulations)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_wsa_enlil_simulations"]}}
-      - name: notifications
+      - name: nasa_donki_notifications
         description: "DONKI space-weather notifications/reports of all types (api.nasa.gov /DONKI/notifications)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_notifications"]}}
       - name: gp
