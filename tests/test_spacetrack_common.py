@@ -90,6 +90,12 @@ def test_use_test_host_non_truthy_values(monkeypatch):
         assert c._use_test_host() is False, v
 
 
+def test_prod_base_url_uses_www_host():
+    # space-track's TLS cert is valid for the www. subdomain (and *.space-track.org),
+    # NOT the bare apex. Hitting the apex fails the handshake with a hostname mismatch.
+    assert c.BASE_URL == "https://www.space-track.org"
+
+
 def test_base_url_switches_on_toggle(monkeypatch):
     monkeypatch.delenv("SPACETRACK_USE_TEST_HOST", raising=False)
     assert c._base_url() == c.BASE_URL
