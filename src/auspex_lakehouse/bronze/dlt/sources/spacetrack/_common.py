@@ -4,7 +4,7 @@ from datetime import date, timedelta
 import dlt
 import requests  # stdlib requests: cookie-session persistence across queries
 
-BASE_URL = "https://www.space-track.org"
+BASE_URL = "https://for-testing-only.space-track.org"
 
 
 def spacetrack_credentials() -> tuple[str, str]:
