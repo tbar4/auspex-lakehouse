@@ -55,6 +55,32 @@ Source entries added to the existing single `bronze` source in
 
 No name collisions between NASA and space-track table names.
 
+**Bucket/location confirmed:** `.dlt/config.toml` sets `bucket_url="s3://auspex-lakehouse"`
+and the space-track pipelines use `dataset_name="bronze"`, so tables land at
+`s3://auspex-lakehouse/bronze/{name}` — the templated `external_location` resolves
+correctly without change.
+
+### 1b. Dagster source→asset lineage mapping (REQUIRED — easy to miss)
+
+The dbt-side source→dlt-asset lineage is **not** driven by `meta.dagster.asset_key` in
+`sources.yml`. It is driven by a hardcoded Python dict `_SOURCE_ASSET_KEYS` in
+`src/auspex_lakehouse/transform/definitions.py`, consumed by
+`BronzeDbtTranslator.get_asset_key`. An unmapped source falls back to the default dbt
+key (`["gp"]`-style), which would **not** match `dlt_spacetrack_gp` and would fail the
+lineage test. Therefore add the six space-track entries to `_SOURCE_ASSET_KEYS`:
+
+```python
+"gp": AssetKey(["dlt_spacetrack_gp"]),
+"satcat": AssetKey(["dlt_spacetrack_satcat"]),
+"boxscore": AssetKey(["dlt_spacetrack_boxscore"]),
+"decay": AssetKey(["dlt_spacetrack_decay"]),
+"cdm": AssetKey(["dlt_spacetrack_cdm"]),
+"tip": AssetKey(["dlt_spacetrack_tip"]),
+```
+
+(The `meta.dagster.asset_key` in `sources.yml` is kept as belt-and-suspenders, matching
+the existing NASA convention.)
+
 ### 2. Tests (mirror the dlt `primary_key` definitions — the authoritative keys)
 
 | model | test |
@@ -74,7 +100,13 @@ No name collisions between NASA and space-track table names.
 - Every table: a `description:`.
 - Every **top-level** column: a `description:`.
 - **Normalization rule** applied to every documented name: dlt snake-cases source
-  field names (`NORAD_CAT_ID` → `norad_cat_id`, `activityID` → `activity_id`). Nested
+  field names. **Verified** by running dlt's own `snake_case` `NamingConvention`:
+  `NORAD_CAT_ID→norad_cat_id`, `CDM_ID→cdm_id`, `MSG_EPOCH→msg_epoch`,
+  `PRECEDENCE→precedence`, `COUNTRY→country`, `OBJECT_NAME→object_name`,
+  `OBJECT_ID→object_id`, `OBJECT_TYPE→object_type`, `INSERT_EPOCH→insert_epoch`,
+  `TLE_LINE1→tle_line1`; and it reproduces the existing NASA names
+  (`activityID→activity_id`, `associatedCMEID→associated_cmeid`, `gstID→gst_id`,
+  `time21_5→time21_5`). Test column names use these exact strings. Nested
   arrays/objects become dlt **child tables** (e.g. neows `close_approach_data`,
   neo_lookup `orbital_data` / `close_approach_data`) — documented in the parent
   table's `description`, not as columns (child tables are not modeled here).
@@ -115,11 +147,18 @@ landing page. Content:
 
 ## Verification
 
-- `uv run --no-sync dbt deps` then `dbt parse` — clean parse.
-- `dbt docs generate --static --empty-catalog` (the exact CI command) — builds the
-  static site without a warehouse.
-- `dbt compile` — the six new models resolve against the `bronze` source.
-- `uv run pytest tests/test_dbt_bronze.py` — passes with the updated expectations.
+Order matters — the dbt manifest is **gitignored** (`dbt/.gitignore: target/`) and
+ephemeral, so the Dagster asset graph (and `test_dbt_bronze.py`) only reflects the new
+models *after* the manifest is regenerated.
+
+1. `uv run --no-sync dbt deps` then `dbt parse` — clean parse; **regenerates
+   `dbt/target/manifest.json` to 20 models** (precondition for the dagster test).
+2. `dbt compile` — the six new models resolve against the `bronze` source.
+3. `dbt docs generate --static --empty-catalog` (the exact CI command) — builds the
+   static site without a warehouse; confirm the overview page and column descriptions
+   render in `static_index.html`.
+4. `uv run pytest tests/test_dbt_bronze.py` — passes with the updated expectations
+   (20 models + space-track lineage sample). Run **after** step 1.
 
 ## Out of scope / call-outs
 
