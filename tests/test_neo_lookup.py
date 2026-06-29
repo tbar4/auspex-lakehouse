@@ -1,5 +1,9 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import Mock
 
+import pytest
+
+import auspex_lakehouse.bronze.dlt.sources.nasa.neo_lookup as nl
 from auspex_lakehouse.bronze.dlt.sources.nasa.neo_lookup import select_neo_work_ids
 
 NOW = datetime(2026, 6, 28, tzinfo=timezone.utc)
@@ -34,3 +38,55 @@ def test_cap_prioritizes_new_and_defers_rest():
     plan = select_neo_work_ids(candidates, existing, NOW, 30, cap=2)
     assert plan.selected == ["n0", "n1"]            # new sorted, prioritized
     assert plan.deferred_over_cap == ["n2", "old"]  # remaining new + stale deferred
+
+
+def _resp(status, payload=None):
+    r = Mock()
+    r.status_code = status
+    r.json.return_value = payload or {}
+    r.raise_for_status = Mock(
+        side_effect=None if status < 400 else RuntimeError(f"http {status}")
+    )
+    return r
+
+
+def test_fetch_ok_stamps_row(monkeypatch):
+    monkeypatch.setattr(
+        nl,
+        "requests",
+        Mock(
+            get=Mock(
+                return_value=_resp(200, {"neo_reference_id": "a", "name": "X"})
+            )
+        ),
+    )
+    rows, stats = nl.fetch_neo_lookups(["a"], "2026-06-28T00:00:00+00:00", "key")
+    assert stats.fetched_ok == 1
+    assert rows[0]["lookup_status"] == "ok"
+    assert rows[0]["lookup_fetched_at"] == "2026-06-28T00:00:00+00:00"
+    assert rows[0]["name"] == "X"
+
+
+def test_fetch_404_writes_tombstone(monkeypatch):
+    monkeypatch.setattr(nl, "requests", Mock(get=Mock(return_value=_resp(404))))
+    rows, stats = nl.fetch_neo_lookups(["dead"], "T", "key")
+    assert stats.tombstoned == 1 and stats.fetched_ok == 0
+    assert rows == [
+        {"neo_reference_id": "dead", "lookup_fetched_at": "T", "lookup_status": "not_found"}
+    ]
+
+
+def test_fetch_429_stops_and_defers_tail(monkeypatch):
+    seq = [_resp(200, {"neo_reference_id": "a"}), _resp(429), _resp(200, {"neo_reference_id": "c"})]
+    monkeypatch.setattr(nl, "requests", Mock(get=Mock(side_effect=seq)))
+    rows, stats = nl.fetch_neo_lookups(["a", "b", "c"], "T", "key")
+    assert stats.stopped_on_rate_limit is True
+    assert stats.fetched_ok == 1
+    assert stats.deferred_on_stop == ["b", "c"]
+    assert [r["neo_reference_id"] for r in rows] == ["a"]
+
+
+def test_fetch_other_error_raises(monkeypatch):
+    monkeypatch.setattr(nl, "requests", Mock(get=Mock(return_value=_resp(500))))
+    with pytest.raises(RuntimeError):
+        nl.fetch_neo_lookups(["x"], "T", "key")
