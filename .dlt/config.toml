@@ -1,0 +1,5 @@
+# Non-secret dlt config (safe to commit). Credentials live in secrets.toml
+# (local) or environment variables (containers / CI). dlt forbids secret-typed
+# values such as `destination.filesystem.credentials` from appearing here.
+[destination.filesystem]
+bucket_url = "s3://auspex-lakehouse"

@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  test:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    env:
+      # Dummy values so importing/validating the code location never needs real
+      # secrets in CI. Real credentials are only required at pipeline runtime.
+      NASA_API_KEY: ci-dummy
+      DESTINATION__FILESYSTEM__BUCKET_URL: s3://ci-bucket
+      DESTINATION__FILESYSTEM__CREDENTIALS__ENDPOINT_URL: https://example.invalid
+      DESTINATION__FILESYSTEM__CREDENTIALS__REGION_NAME: us-west-1
+      DESTINATION__FILESYSTEM__CREDENTIALS__AWS_ACCESS_KEY_ID: ci-dummy
+      DESTINATION__FILESYSTEM__CREDENTIALS__AWS_SECRET_ACCESS_KEY: ci-dummy
+      MINIO_ENDPOINT: https://example.invalid
+      MINIO_ACCESS_KEY: ci-dummy
+      MINIO_SECRET_KEY: ci-dummy
+      BRONZE_BUCKET_URI: s3://ci-bucket
+      BRONZE_BUCKET_NAME: ci-bucket
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Run tests
+        run: uv run pytest -q
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history so gitleaks can scan every commit
+      - name: Run gitleaks
+        # Uses the gitleaks container directly (no license required, unlike
+        # gitleaks-action for organization accounts). Fails the job — and blocks
+        # the image build below — if any secret is detected in the tree or history.
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest \
+            detect --source=/repo --redact --verbose
+
+  build:
+    name: Build images
+    needs: [test, secret-scan]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # GHCR requires a lowercase namespace; owner/repo may contain capitals.
+      - name: Compute lowercase image namespace
+        id: ns
+        run: echo "repo=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # Only authenticate (and push) on merges to main. PRs build but don't push.
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push user-code image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile_user_code
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.ns.outputs.repo }}-user-code:latest
+            ${{ env.REGISTRY }}/${{ steps.ns.outputs.repo }}-user-code:${{ github.sha }}
+          cache-from: type=gha,scope=user-code
+          cache-to: type=gha,mode=max,scope=user-code
+
+      - name: Build & push control-plane image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile_dagster
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.ns.outputs.repo }}-dagster:latest
+            ${{ env.REGISTRY }}/${{ steps.ns.outputs.repo }}-dagster:${{ github.sha }}
+          cache-from: type=gha,scope=dagster
+          cache-to: type=gha,mode=max,scope=dagster

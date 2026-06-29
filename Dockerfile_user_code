@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------------------
+# User-code image
+#
+# Serves the auspex_lakehouse Dagster Definitions over gRPC. Dagster runs
+# execute *inside this container* (DefaultRunLauncher), so this image carries
+# the full pipeline dependency set (polars / dlt / boto3 / deltalake).
+#
+# Built with uv from uv.lock for reproducible, well-cached installs.
+# ---------------------------------------------------------------------------
+FROM ghcr.io/astral-sh/uv:python3.10-bookworm-slim
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /opt/dagster/app
+
+# 1) Install dependencies only first (no project) for a cacheable layer that
+#    only busts when pyproject.toml / uv.lock change.
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
+
+# 2) Copy the source and install the project itself.
+COPY . /opt/dagster/app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+# Put the project venv first on PATH so `dagster` resolves to it.
+ENV PATH="/opt/dagster/app/.venv/bin:${PATH}"
+
+EXPOSE 4000
+
+HEALTHCHECK --timeout=2s --start-period=5s --interval=5s --retries=20 \
+    CMD ["dagster", "api", "grpc-health-check", "-p", "4000"]
+
+# CMD is overridden by run launchers/executors when executing runs and steps.
+CMD ["dagster", "code-server", "start", "-h", "0.0.0.0", "-p", "4000", "-m", "auspex_lakehouse.definitions"]

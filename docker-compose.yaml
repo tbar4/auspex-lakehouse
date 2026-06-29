@@ -1,0 +1,111 @@
+# ---------------------------------------------------------------------------
+# Dagster deployment for auspex_lakehouse.
+#
+#   auspex_postgres   - run / event / schedule storage (Dagster instance DB)
+#   auspex_user_code  - gRPC server exposing your Definitions; runs execute here
+#   auspex_webserver  - Dagster UI (http://localhost:3000)
+#   auspex_daemon     - schedules, sensors, run queue
+#
+# Secrets/config are read from .env (git-ignored) and injected via `env_file`.
+# Nothing secret is baked into the images. See .env.example for the full list.
+# ---------------------------------------------------------------------------
+
+services:
+  auspex_postgres:
+    image: postgres:11
+    container_name: auspex_postgres
+    environment:
+      POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-postgres_user}
+      POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-postgres_db}
+    volumes:
+      - auspex_pgdata:/var/lib/postgresql/data
+    networks:
+      - auspex_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DAGSTER_POSTGRES_USER:-postgres_user} -d ${DAGSTER_POSTGRES_DB:-postgres_db}"]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+
+  # gRPC code server. By setting DAGSTER_CURRENT_IMAGE we tell Dagster which
+  # image to reuse if you later switch to a per-run container launcher.
+  auspex_user_code:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_user_code
+    container_name: auspex_user_code
+    image: auspex_user_code_image
+    restart: always
+    env_file:
+      - .env
+    environment:
+      DAGSTER_POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-postgres_user}
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-postgres_password}
+      DAGSTER_POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-postgres_db}
+      DAGSTER_POSTGRES_HOST: auspex_postgres
+      DAGSTER_CURRENT_IMAGE: auspex_user_code_image
+    networks:
+      - auspex_network
+
+  auspex_webserver:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_dagster
+    entrypoint:
+      - dagster-webserver
+      - -h
+      - "0.0.0.0"
+      - -p
+      - "3000"
+      - -w
+      - workspace.yaml
+    container_name: auspex_webserver
+    expose:
+      - "3000"
+    ports:
+      - "3000:3000"
+    environment:
+      DAGSTER_POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-postgres_user}
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-postgres_password}
+      DAGSTER_POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-postgres_db}
+      DAGSTER_POSTGRES_HOST: auspex_postgres
+    networks:
+      - auspex_network
+    depends_on:
+      auspex_postgres:
+        condition: service_healthy
+      auspex_user_code:
+        condition: service_healthy
+
+  auspex_daemon:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_dagster
+    entrypoint:
+      - dagster-daemon
+      - run
+    container_name: auspex_daemon
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      DAGSTER_POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-postgres_user}
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-postgres_password}
+      DAGSTER_POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-postgres_db}
+      DAGSTER_POSTGRES_HOST: auspex_postgres
+    networks:
+      - auspex_network
+    depends_on:
+      auspex_postgres:
+        condition: service_healthy
+      auspex_user_code:
+        condition: service_started
+
+networks:
+  auspex_network:
+    driver: bridge
+    name: auspex_network
+
+volumes:
+  auspex_pgdata:

@@ -1,0 +1,7 @@
+# The webserver and daemon load user code from the gRPC server running in the
+# auspex_user_code container (see docker-compose.yaml).
+load_from:
+  - grpc_server:
+      host: auspex_user_code
+      port: 4000
+      location_name: "auspex_lakehouse"

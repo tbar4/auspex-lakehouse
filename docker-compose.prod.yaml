@@ -1,0 +1,115 @@
+# ---------------------------------------------------------------------------
+# Production deployment — Synology NAS (Container Manager, DSM 7.2+)
+#
+# Pulls pre-built images from GHCR. NOTHING is built on the NAS.
+# On the NAS you only need TWO files in one folder (e.g. /volume1/docker/auspex):
+#   - this file, saved as  docker-compose.yml
+#   - .env                 (copied over manually — it is git-ignored and is NOT
+#                           baked into the images; see .env.example)
+#
+# In .env set the secrets AND:
+#   IMAGE_REPO=ghcr.io/<owner>/<repo>     e.g. ghcr.io/yourname/auspex-lakehouse
+#   IMAGE_TAG=latest                       (or a specific :<git-sha> to pin)
+# ---------------------------------------------------------------------------
+
+services:
+  auspex_postgres:
+    image: postgres:11
+    container_name: auspex_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-postgres_user}
+      POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-postgres_db}
+    volumes:
+      # Bind-mount to a DSM shared folder so the DB is visible & backup-able.
+      # Create this folder first in File Station. If Postgres fails to start with
+      # a permissions error, replace this line with the named volume below.
+      - /volume1/docker/auspex/pgdata:/var/lib/postgresql/data
+      # - auspex_pgdata:/var/lib/postgresql/data   # <- named-volume fallback
+    networks: [auspex_network]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DAGSTER_POSTGRES_USER:-postgres_user} -d ${DAGSTER_POSTGRES_DB:-postgres_db}"]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+
+  auspex_user_code:
+    image: ${IMAGE_REPO}-user-code:${IMAGE_TAG:-latest}
+    container_name: auspex_user_code
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DAGSTER_POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-postgres_user}
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-postgres_password}
+      DAGSTER_POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-postgres_db}
+      DAGSTER_POSTGRES_HOST: auspex_postgres
+      DAGSTER_CURRENT_IMAGE: ${IMAGE_REPO}-user-code:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"   # auto-updated by Watchtower
+    networks: [auspex_network]
+
+  auspex_webserver:
+    image: ${IMAGE_REPO}-dagster:${IMAGE_TAG:-latest}
+    entrypoint: [dagster-webserver, -h, "0.0.0.0", -p, "3000", -w, workspace.yaml]
+    container_name: auspex_webserver
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DAGSTER_POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-postgres_user}
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-postgres_password}
+      DAGSTER_POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-postgres_db}
+      DAGSTER_POSTGRES_HOST: auspex_postgres
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    networks: [auspex_network]
+    depends_on:
+      auspex_postgres: { condition: service_healthy }
+      auspex_user_code: { condition: service_healthy }
+
+  auspex_daemon:
+    image: ${IMAGE_REPO}-dagster:${IMAGE_TAG:-latest}
+    entrypoint: [dagster-daemon, run]
+    container_name: auspex_daemon
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DAGSTER_POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-postgres_user}
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-postgres_password}
+      DAGSTER_POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-postgres_db}
+      DAGSTER_POSTGRES_HOST: auspex_postgres
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    networks: [auspex_network]
+    depends_on:
+      auspex_postgres: { condition: service_healthy }
+      auspex_user_code: { condition: service_started }
+
+  # Auto-pulls new GHCR images and recreates ONLY the labeled services above.
+  # Postgres is intentionally NOT labeled, so its data is never touched.
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: auspex_watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # For PRIVATE GHCR images, also give Watchtower registry creds, e.g.:
+      #   docker --config /tmp/wt login ghcr.io   # writes config.json with a read:packages PAT
+      # then mount it:
+      # - /volume1/docker/auspex/wt-config.json:/config.json:ro
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"      # only update containers labeled above
+      WATCHTOWER_CLEANUP: "true"           # delete old images after updating
+      WATCHTOWER_POLL_INTERVAL: "3600"     # check hourly
+      # WATCHTOWER_SCHEDULE: "0 0 4 * * *" # alt: daily at 04:00 (6-field cron; omit POLL_INTERVAL)
+    networks: [auspex_network]
+
+networks:
+  auspex_network:
+    driver: bridge
+    name: auspex_network
+
+# Uncomment if you use the named-volume fallback above instead of the bind mount.
+# volumes:
+#   auspex_pgdata:

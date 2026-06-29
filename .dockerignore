@@ -1,0 +1,29 @@
+# --- Secrets: never bake these into an image layer ---
+.env
+.env.*
+**/secrets.toml
+
+# --- Python / virtualenv / caches ---
+.venv
+**/__pycache__/
+*.py[cod]
+*.egg-info
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# --- Dagster local/runtime artifacts ---
+.tmp_dagster_home_*
+tmp/
+*storage/
+
+# --- VCS / tooling / docs (not needed at runtime) ---
+.git
+.github
+.gitignore
+.dg
+docs/
+
+# --- Local dev DBs / data dumps ---
+*.sqlite
+*.db
