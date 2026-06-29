@@ -10,9 +10,9 @@ dbt_project = DbtProject(
 dbt_project.prepare_if_dev()
 
 _SOURCE_ASSET_KEYS = {
-    "apod": AssetKey(["dlt_nasa_api_apod"]),
-    "neows": AssetKey(["dlt_nasa_api_neows"]),
-    "neo_lookup": AssetKey(["neo_lookup"]),
+    "nasa_astronomy_picture_of_the_day": AssetKey(["dlt_nasa_astronomy_picture_of_the_day"]),
+    "nasa_near_earth_object_feed": AssetKey(["dlt_nasa_near_earth_object_feed"]),
+    "nasa_near_earth_object_lookups": AssetKey(["nasa_near_earth_object_lookups"]),
     **{
         t: AssetKey([f"dlt_nasa_donki_{t}"])
         for t in [

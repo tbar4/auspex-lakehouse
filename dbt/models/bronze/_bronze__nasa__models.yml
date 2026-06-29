@@ -1,6 +1,6 @@
 version: 2
 models:
-  - name: bronze_apod
+  - name: bronze_nasa_astronomy_picture_of_the_day
     description: >
       Astronomy Picture of the Day — one row per calendar date. Pass-through view
       over the apod Delta table (dlt internal columns excluded).
@@ -13,7 +13,7 @@ models:
       - {name: media_type, description: "Asset type: 'image' or 'video'."}
       - {name: service_version, description: "APOD API service version (e.g. 'v1')."}
       - {name: copyright, description: "Copyright holder when the asset is not public domain (null otherwise)."}
-  - name: bronze_neows
+  - name: bronze_nasa_near_earth_object_feed
     description: >
       Near-Earth Object daily feed — one row per asteroid per feed date.
       Child table: close_approach_data (per close-approach event: epoch, relative
@@ -26,13 +26,13 @@ models:
     columns:
       - {name: date, description: "Feed date (YYYY-MM-DD) on which the object was reported close-approaching. Primary key with id.", data_tests: [not_null]}
       - {name: id, description: "NeoWs object id. Primary key with date.", data_tests: [not_null]}
-      - {name: neo_reference_id, description: "Stable NEO reference id; join key to bronze_neo_lookup."}
+      - {name: neo_reference_id, description: "Stable NEO reference id; join key to bronze_nasa_near_earth_object_lookups."}
       - {name: name, description: "Object designation / name."}
       - {name: nasa_jpl_url, description: "Link to the object's JPL Small-Body Database page."}
       - {name: absolute_magnitude_h, description: "Absolute magnitude (H) of the object."}
       - {name: is_potentially_hazardous_asteroid, description: "True if classified as a Potentially Hazardous Asteroid."}
       - {name: is_sentry_object, description: "True if present on the JPL Sentry impact-risk list."}
-  - name: bronze_neo_lookup
+  - name: bronze_nasa_near_earth_object_lookups
     description: >
       Per-object NEO lookups enriched with orbital data. lookup_status='not_found'
       rows are 404 tombstones (only neo_reference_id, lookup_fetched_at, lookup_status

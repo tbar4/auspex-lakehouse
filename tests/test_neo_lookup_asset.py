@@ -5,10 +5,10 @@ def test_neo_lookup_asset_wired_into_definitions():
     from auspex_lakehouse.definitions import defs
 
     graph = defs.resolve_asset_graph()
-    key = AssetKey(["neo_lookup"])
+    key = AssetKey(["nasa_near_earth_object_lookups"])
     assert key in graph.get_all_asset_keys()
     # depends on the dlt neows bronze table
-    assert AssetKey(["dlt_nasa_api_neows"]) in graph.get(key).parent_keys
+    assert AssetKey(["dlt_nasa_near_earth_object_feed"]) in graph.get(key).parent_keys
 
 
 def test_neo_lookup_asset_is_pooled():
@@ -17,7 +17,7 @@ def test_neo_lookup_asset_is_pooled():
     ad = next(
         a
         for a in defs.assets
-        if isinstance(a, AssetsDefinition) and AssetKey(["neo_lookup"]) in a.keys
+        if isinstance(a, AssetsDefinition) and AssetKey(["nasa_near_earth_object_lookups"]) in a.keys
     )
     assert ad.op.pool == "nasa_api"
 

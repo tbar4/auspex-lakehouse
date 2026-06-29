@@ -81,7 +81,7 @@ def fetch_neo_lookups(
 
 
 @dlt.resource(
-    name="neo_lookup",
+    name="nasa_near_earth_object_lookups",
     write_disposition="merge",
     primary_key="neo_reference_id",
     table_format="delta",

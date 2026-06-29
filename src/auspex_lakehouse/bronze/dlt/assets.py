@@ -39,6 +39,7 @@ from auspex_lakehouse.resources.delta import bronze_table_exists, read_bronze_ta
 class NasaDltTranslator(DagsterDltTranslator):
     def get_asset_spec(self, data: DltResourceTranslatorData):
         return super().get_asset_spec(data).replace_attributes(
+            key=AssetKey(f"dlt_{data.resource.name}"),
             automation_condition=AutomationCondition.on_cron("0 6 * * *"),
         )
 
@@ -67,16 +68,16 @@ def nasa_api_assets(
     yield from dlt.run(context=context, dlt_source=source)
 
 @asset(
-    name="apod_images",
+    name="nasa_astronomy_picture_of_the_day_images",
     group_name="nasa",
     partitions_def=daily_partitions,
-    deps=[AssetKey(["dlt_nasa_api_apod"])],
+    deps=[AssetKey(["dlt_nasa_astronomy_picture_of_the_day"])],
     automation_condition=AutomationCondition.eager(),
 )
 def apod_images(context: AssetExecutionContext):
     partition_key = context.partition_key
 
-    df = read_bronze_table("apod").filter(pl.col("date") == partition_key)
+    df = read_bronze_table("nasa_astronomy_picture_of_the_day").filter(pl.col("date") == partition_key)
 
     s3 = boto3.client(
         "s3",
@@ -93,7 +94,7 @@ def apod_images(context: AssetExecutionContext):
             continue
 
         filename = PurePosixPath(hd_url).name
-        object_key = f"bronze/apod_images/{partition_key}_{filename}"
+        object_key = f"bronze/nasa_astronomy_picture_of_the_day_images/{partition_key}_{filename}"
 
         img_resp = requests.get(hd_url, timeout=60)
         img_resp.raise_for_status()
@@ -119,9 +120,9 @@ def _existing_lookup_index() -> dict[str, datetime]:
     to either, and coerce naive timestamps to UTC so the staleness subtraction in
     ``select_neo_work_ids`` doesn't raise on naive/aware mixing. Keys are coerced
     to ``str`` so they compare equal to the str-coerced candidates."""
-    if not bronze_table_exists("neo_lookup"):
+    if not bronze_table_exists("nasa_near_earth_object_lookups"):
         return {}
-    df = read_bronze_table("neo_lookup").select(["neo_reference_id", "lookup_fetched_at"])
+    df = read_bronze_table("nasa_near_earth_object_lookups").select(["neo_reference_id", "lookup_fetched_at"])
     index: dict[str, datetime] = {}
     for row in df.iter_rows(named=True):
         ts = row["lookup_fetched_at"]
@@ -136,19 +137,19 @@ def _existing_lookup_index() -> dict[str, datetime]:
 
 
 @asset(
-    name="neo_lookup",
+    name="nasa_near_earth_object_lookups",
     group_name="nasa",
     partitions_def=daily_partitions,
-    deps=[AssetKey(["dlt_nasa_api_neows"])],
+    deps=[AssetKey(["dlt_nasa_near_earth_object_feed"])],
     automation_condition=AutomationCondition.eager(),
     pool=NASA_API_POOL,
 )
 def neo_lookup(context: AssetExecutionContext):
     partition_key = context.partition_key
-    # neows table is guaranteed to exist by the dlt_nasa_api_neows dep above.
+    # nasa_near_earth_object_feed table is guaranteed to exist by the dlt_nasa_near_earth_object_feed dep above.
     candidates = {
         str(neo_id)  # coerce so candidate IDs compare equal to str-keyed existing index
-        for neo_id in read_bronze_table("neows")
+        for neo_id in read_bronze_table("nasa_near_earth_object_feed")
         .filter(pl.col("date") == partition_key)
         .get_column("neo_reference_id")
         .to_list()

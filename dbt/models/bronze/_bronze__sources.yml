@@ -5,15 +5,15 @@ sources:
     meta:
       external_location: "delta_scan('s3://auspex-lakehouse/bronze/{name}')"
     tables:
-      - name: apod
+      - name: nasa_astronomy_picture_of_the_day
         description: "NASA Astronomy Picture of the Day — one record per calendar date (api.nasa.gov /planetary/apod)."
-        meta: {dagster: {asset_key: ["dlt_nasa_api_apod"]}}
-      - name: neows
+        meta: {dagster: {asset_key: ["dlt_nasa_astronomy_picture_of_the_day"]}}
+      - name: nasa_near_earth_object_feed
         description: "Near-Earth Object Web Service daily feed — one row per asteroid per close-approach feed date (api.nasa.gov /neo/rest/v1/feed)."
-        meta: {dagster: {asset_key: ["dlt_nasa_api_neows"]}}
-      - name: neo_lookup
+        meta: {dagster: {asset_key: ["dlt_nasa_near_earth_object_feed"]}}
+      - name: nasa_near_earth_object_lookups
         description: "Per-object NEO lookups enriched with orbital data; 'not_found' rows are 404 tombstones (api.nasa.gov /neo/rest/v1/neo/{id})."
-        meta: {dagster: {asset_key: ["neo_lookup"]}}
+        meta: {dagster: {asset_key: ["nasa_near_earth_object_lookups"]}}
       - name: cme
         description: "DONKI Coronal Mass Ejection events (api.nasa.gov /DONKI/CME)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_cme"]}}
