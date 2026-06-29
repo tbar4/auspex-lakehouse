@@ -1,0 +1,175 @@
+version: 2
+models:
+  - name: bronze_apod
+    description: >
+      Astronomy Picture of the Day — one row per calendar date. Pass-through view
+      over the apod Delta table (dlt internal columns excluded).
+    columns:
+      - {name: date, description: "Publication date (YYYY-MM-DD). Primary key.", data_tests: [not_null, unique]}
+      - {name: title, description: "Title of the day's image or video."}
+      - {name: explanation, description: "NASA's written explanation of the image."}
+      - {name: url, description: "URL of the standard-resolution image or video embed."}
+      - {name: hdurl, description: "URL of the high-definition image (null for some entries / videos)."}
+      - {name: media_type, description: "Asset type: 'image' or 'video'."}
+      - {name: service_version, description: "APOD API service version (e.g. 'v1')."}
+      - {name: copyright, description: "Copyright holder when the asset is not public domain (null otherwise)."}
+  - name: bronze_neows
+    description: >
+      Near-Earth Object daily feed — one row per asteroid per feed date.
+      Child table: close_approach_data (per close-approach event: epoch, relative
+      velocity, miss distance, orbiting body). Estimated-diameter bounds are
+      flattened into estimated_diameter__* columns.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, id]
+    columns:
+      - {name: date, description: "Feed date (YYYY-MM-DD) on which the object was reported close-approaching. Primary key with id.", data_tests: [not_null]}
+      - {name: id, description: "NeoWs object id. Primary key with date.", data_tests: [not_null]}
+      - {name: neo_reference_id, description: "Stable NEO reference id; join key to bronze_neo_lookup."}
+      - {name: name, description: "Object designation / name."}
+      - {name: nasa_jpl_url, description: "Link to the object's JPL Small-Body Database page."}
+      - {name: absolute_magnitude_h, description: "Absolute magnitude (H) of the object."}
+      - {name: is_potentially_hazardous_asteroid, description: "True if classified as a Potentially Hazardous Asteroid."}
+      - {name: is_sentry_object, description: "True if present on the JPL Sentry impact-risk list."}
+  - name: bronze_neo_lookup
+    description: >
+      Per-object NEO lookups enriched with orbital data. lookup_status='not_found'
+      rows are 404 tombstones (only neo_reference_id, lookup_fetched_at, lookup_status
+      populated). Child tables: close_approach_data, orbital_data (orbit_class nested).
+    columns:
+      - {name: neo_reference_id, description: "Stable NEO reference id. Primary key.", data_tests: [not_null, unique]}
+      - {name: lookup_fetched_at, description: "ISO-8601 timestamp this lookup row was fetched (injected by the pipeline)."}
+      - {name: lookup_status, description: "'ok' for a successful lookup; 'not_found' for a 404 tombstone row."}
+      - {name: id, description: "NeoWs object id."}
+      - {name: name, description: "Object designation / name."}
+      - {name: designation, description: "Provisional or permanent designation."}
+      - {name: nasa_jpl_url, description: "Link to the object's JPL Small-Body Database page."}
+      - {name: absolute_magnitude_h, description: "Absolute magnitude (H) of the object."}
+      - {name: is_potentially_hazardous_asteroid, description: "True if classified as a Potentially Hazardous Asteroid."}
+      - {name: is_sentry_object, description: "True if present on the JPL Sentry impact-risk list."}
+  - name: bronze_cme
+    description: >
+      DONKI Coronal Mass Ejection events. Child tables: cme_analyses, instruments,
+      linked_events.
+    columns:
+      - {name: activity_id, description: "Unique CME activity identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: catalog, description: "Source catalog (e.g. 'M2M_CATALOG')."}
+      - {name: start_time, description: "CME start time (ISO-8601 UTC)."}
+      - {name: source_location, description: "Heliographic source location on the Sun."}
+      - {name: active_region_num, description: "Associated NOAA active region number (null if none)."}
+      - {name: note, description: "Analyst note."}
+      - {name: submission_time, description: "Time the record was submitted to DONKI."}
+      - {name: version_id, description: "Record version number."}
+      - {name: link, description: "URL to the DONKI web record."}
+  - name: bronze_cme_analysis
+    description: >
+      DONKI CME Analysis — kinematic fit per CME. Child table: enlil_list
+      (associated WSA-Enlil simulation links).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [associated_cmeid, time21_5]
+    columns:
+      - {name: associated_cmeid, description: "Activity id of the CME this analysis describes. Primary key with time21_5.", data_tests: [not_null]}
+      - {name: time21_5, description: "Time the CME leading edge reached 21.5 solar radii (ISO-8601). Primary key with associated_cmeid.", data_tests: [not_null]}
+      - {name: latitude, description: "Source latitude (degrees)."}
+      - {name: longitude, description: "Source longitude (degrees)."}
+      - {name: half_angle, description: "Half-angular width of the CME cone (degrees)."}
+      - {name: speed, description: "CME radial speed (km/s)."}
+      - {name: type, description: "CME speed/type classification (S, C, O, R, ER)."}
+      - {name: is_most_accurate, description: "True if this is the preferred analysis for the CME."}
+      - {name: note, description: "Analyst note."}
+      - {name: catalog, description: "Source catalog."}
+      - {name: link, description: "URL to the DONKI web record."}
+      - {name: submission_time, description: "Time the analysis was submitted."}
+      - {name: version_id, description: "Record version number."}
+  - name: bronze_gst
+    description: "DONKI Geomagnetic Storm events. Child tables: all_kp_index, linked_events."
+    columns:
+      - {name: gst_id, description: "Unique geomagnetic-storm identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: start_time, description: "Storm start time (ISO-8601 UTC)."}
+      - {name: link, description: "URL to the DONKI web record."}
+      - {name: submission_time, description: "Time the record was submitted."}
+      - {name: version_id, description: "Record version number."}
+  - name: bronze_ips
+    description: "DONKI Interplanetary Shock events. Child tables: instruments, linked_events."
+    columns:
+      - {name: activity_id, description: "Unique IPS activity identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: catalog, description: "Source catalog."}
+      - {name: location, description: "Observation location (e.g. spacecraft / region)."}
+      - {name: event_time, description: "Shock observation time (ISO-8601 UTC)."}
+      - {name: link, description: "URL to the DONKI web record."}
+      - {name: submission_time, description: "Time the record was submitted."}
+      - {name: version_id, description: "Record version number."}
+  - name: bronze_flr
+    description: "DONKI Solar Flare events. Child tables: instruments, linked_events."
+    columns:
+      - {name: flr_id, description: "Unique solar-flare identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: catalog, description: "Source catalog."}
+      - {name: begin_time, description: "Flare begin time (ISO-8601 UTC)."}
+      - {name: peak_time, description: "Flare peak time (ISO-8601 UTC)."}
+      - {name: end_time, description: "Flare end time (ISO-8601 UTC; null if ongoing/unknown)."}
+      - {name: class_type, description: "GOES soft X-ray flare class (e.g. 'M1.5', 'X2.0')."}
+      - {name: source_location, description: "Heliographic source location on the Sun."}
+      - {name: active_region_num, description: "Associated NOAA active region number (null if none)."}
+      - {name: note, description: "Analyst note."}
+      - {name: link, description: "URL to the DONKI web record."}
+      - {name: submission_time, description: "Time the record was submitted."}
+      - {name: version_id, description: "Record version number."}
+  - name: bronze_sep
+    description: "DONKI Solar Energetic Particle events. Child tables: instruments, linked_events."
+    columns:
+      - {name: sep_id, description: "Unique SEP identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: event_time, description: "SEP onset time (ISO-8601 UTC)."}
+      - {name: link, description: "URL to the DONKI web record."}
+      - {name: submission_time, description: "Time the record was submitted."}
+      - {name: version_id, description: "Record version number."}
+  - name: bronze_mpc
+    description: "DONKI Magnetopause Crossing events. Child tables: instruments, linked_events."
+    columns:
+      - {name: mpc_id, description: "Unique magnetopause-crossing identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: event_time, description: "Crossing time (ISO-8601 UTC)."}
+      - {name: link, description: "URL to the DONKI web record."}
+      - {name: submission_time, description: "Time the record was submitted."}
+      - {name: version_id, description: "Record version number."}
+  - name: bronze_rbe
+    description: "DONKI Radiation Belt Enhancement events. Child tables: instruments, linked_events."
+    columns:
+      - {name: rbe_id, description: "Unique radiation-belt-enhancement identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: event_time, description: "Enhancement onset time (ISO-8601 UTC)."}
+      - {name: link, description: "URL to the DONKI web record."}
+      - {name: submission_time, description: "Time the record was submitted."}
+      - {name: version_id, description: "Record version number."}
+  - name: bronze_hss
+    description: "DONKI High Speed Stream events. Child tables: instruments, linked_events."
+    columns:
+      - {name: hss_id, description: "Unique high-speed-stream identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: event_time, description: "Stream onset time (ISO-8601 UTC)."}
+      - {name: link, description: "URL to the DONKI web record."}
+      - {name: submission_time, description: "Time the record was submitted."}
+      - {name: version_id, description: "Record version number."}
+  - name: bronze_wsa_enlil_simulations
+    description: >
+      DONKI WSA-Enlil heliospheric model runs. Child tables: cme_inputs, impact_list.
+    columns:
+      - {name: simulation_id, description: "Unique simulation identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: model_completion_time, description: "Time the model run completed (ISO-8601 UTC)."}
+      - {name: au, description: "Heliocentric distance of the model domain boundary (astronomical units)."}
+      - {name: estimated_shock_arrival_time, description: "Estimated shock arrival time at Earth (ISO-8601; null if no Earth impact)."}
+      - {name: estimated_duration, description: "Estimated disturbance duration (hours)."}
+      - {name: rmin_re, description: "Minimum modeled magnetopause standoff distance (Earth radii)."}
+      - {name: kp_18, description: "Predicted Kp index at +18h."}
+      - {name: kp_90, description: "Predicted Kp index at +90h."}
+      - {name: kp_135, description: "Predicted Kp index at +135h."}
+      - {name: kp_180, description: "Predicted Kp index at +180h."}
+      - {name: is_earth_gb, description: "True if Earth is glancing-blow impacted."}
+      - {name: link, description: "URL to the DONKI web record."}
+  - name: bronze_notifications
+    description: "DONKI space-weather notifications/reports of all message types."
+    columns:
+      - {name: message_id, description: "Unique notification identifier. Primary key.", data_tests: [not_null, unique]}
+      - {name: message_type, description: "Notification type (e.g. CME, FLR, GST, Report)."}
+      - {name: message_url, description: "URL to the full notification on the DONKI site."}
+      - {name: message_issue_time, description: "Time the notification was issued (ISO-8601 UTC)."}
+      - {name: message_body, description: "Full notification text."}

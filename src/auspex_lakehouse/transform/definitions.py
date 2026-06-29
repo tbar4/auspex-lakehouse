@@ -29,6 +29,12 @@ _SOURCE_ASSET_KEYS = {
             "notifications",
         ]
     },
+    "gp": AssetKey(["dlt_spacetrack_gp"]),
+    "satcat": AssetKey(["dlt_spacetrack_satcat"]),
+    "boxscore": AssetKey(["dlt_spacetrack_boxscore"]),
+    "decay": AssetKey(["dlt_spacetrack_decay"]),
+    "cdm": AssetKey(["dlt_spacetrack_cdm"]),
+    "tip": AssetKey(["dlt_spacetrack_tip"]),
 }
 
 

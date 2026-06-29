@@ -22,7 +22,7 @@ def test_query_class_builds_url_with_segments():
 
     assert out == [{"a": 1}]
     assert sess.get.call_args[0][0] == (
-        "https://www.space-track.org/basicspacedata/query/class/gp/"
+        f"{c.BASE_URL}/basicspacedata/query/class/gp/"
         "orderby/NORAD_CAT_ID/format/json"
     )
 
@@ -36,7 +36,7 @@ def test_query_class_builds_url_without_segments():
     c.query_class(sess, "boxscore")
 
     assert sess.get.call_args[0][0] == (
-        "https://www.space-track.org/basicspacedata/query/class/boxscore/format/json"
+        f"{c.BASE_URL}/basicspacedata/query/class/boxscore/format/json"
     )
 
 

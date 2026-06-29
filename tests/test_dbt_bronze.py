@@ -1,7 +1,7 @@
 from dagster import AssetKey
 
 
-def test_14_bronze_assets_with_lineage():
+def test_20_bronze_assets_with_lineage():
     from auspex_lakehouse.definitions import defs
 
     ag = defs.resolve_asset_graph()
@@ -9,20 +9,11 @@ def test_14_bronze_assets_with_lineage():
     expected = {
         f"bronze_{t}"
         for t in [
-            "apod",
-            "neows",
-            "neo_lookup",
-            "cme",
-            "cme_analysis",
-            "gst",
-            "ips",
-            "flr",
-            "sep",
-            "mpc",
-            "rbe",
-            "hss",
-            "wsa_enlil_simulations",
-            "notifications",
+            # NASA
+            "apod", "neows", "neo_lookup", "cme", "cme_analysis", "gst", "ips",
+            "flr", "sep", "mpc", "rbe", "hss", "wsa_enlil_simulations", "notifications",
+            # space-track
+            "gp", "satcat", "boxscore", "decay", "cdm", "tip",
         ]
     }
     assert expected <= keys, f"missing: {expected - keys}"
@@ -30,3 +21,5 @@ def test_14_bronze_assets_with_lineage():
     assert AssetKey(["dlt_nasa_api_neows"]) in ag.get(AssetKey(["bronze_neows"])).parent_keys
     assert AssetKey(["dlt_nasa_donki_cme"]) in ag.get(AssetKey(["bronze_cme"])).parent_keys
     assert AssetKey(["neo_lookup"]) in ag.get(AssetKey(["bronze_neo_lookup"])).parent_keys
+    assert AssetKey(["dlt_spacetrack_gp"]) in ag.get(AssetKey(["bronze_gp"])).parent_keys
+    assert AssetKey(["dlt_spacetrack_cdm"]) in ag.get(AssetKey(["bronze_cdm"])).parent_keys
