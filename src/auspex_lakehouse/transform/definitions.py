@@ -35,6 +35,7 @@ _SOURCE_ASSET_KEYS = {
     "decay": AssetKey(["dlt_spacetrack_decay"]),
     "cdm": AssetKey(["dlt_spacetrack_cdm"]),
     "tip": AssetKey(["dlt_spacetrack_tip"]),
+    "celestrak_space_weather": AssetKey(["dlt_celestrak_space_weather"]),
 }
 
 

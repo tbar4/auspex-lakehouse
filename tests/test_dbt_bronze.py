@@ -14,6 +14,8 @@ def test_20_bronze_assets_with_lineage():
             "flr", "sep", "mpc", "rbe", "hss", "wsa_enlil_simulations", "notifications",
             # space-track
             "gp", "satcat", "boxscore", "decay", "cdm", "tip",
+            # celestrak
+            "celestrak_space_weather",
         ]
     }
     assert expected <= keys, f"missing: {expected - keys}"
@@ -23,3 +25,7 @@ def test_20_bronze_assets_with_lineage():
     assert AssetKey(["neo_lookup"]) in ag.get(AssetKey(["bronze_neo_lookup"])).parent_keys
     assert AssetKey(["dlt_spacetrack_gp"]) in ag.get(AssetKey(["bronze_gp"])).parent_keys
     assert AssetKey(["dlt_spacetrack_cdm"]) in ag.get(AssetKey(["bronze_cdm"])).parent_keys
+    assert (
+        AssetKey(["dlt_celestrak_space_weather"])
+        in ag.get(AssetKey(["bronze_celestrak_space_weather"])).parent_keys
+    )
