@@ -17,8 +17,8 @@ def test_definitions_load():
 def test_definitions_include_spacetrack_assets():
     from auspex_lakehouse.definitions import defs
     graph = defs.resolve_asset_graph()
-    # DLT generates keys from source/resource names, e.g. "dlt_snapshot_source_gp"
-    # and "dlt_incremental_source_decay"; confirm both are wired under the spacetrack group.
+    # SpaceTrackDltTranslator overrides the default dlt key to dlt_spacetrack_<name>.
     st_keys = {k.to_user_string() for k in graph.asset_keys_for_group("spacetrack")}
-    assert any("gp" in k for k in st_keys), f"No GP asset in spacetrack group; got {st_keys}"
-    assert any("decay" in k for k in st_keys), f"No decay asset in spacetrack group; got {st_keys}"
+    assert len(st_keys) >= 6, f"Expected at least 6 spacetrack assets; got {st_keys}"
+    assert "dlt_spacetrack_gp" in st_keys, f"Missing dlt_spacetrack_gp; got {st_keys}"
+    assert "dlt_spacetrack_decay" in st_keys, f"Missing dlt_spacetrack_decay; got {st_keys}"

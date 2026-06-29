@@ -858,6 +858,7 @@ class SpaceTrackDltTranslator(DagsterDltTranslator):
 
     def get_asset_spec(self, data: DltResourceTranslatorData):
         return super().get_asset_spec(data).replace_attributes(
+            key=AssetKey(f"dlt_spacetrack_{data.resource.name}"),
             automation_condition=AutomationCondition.on_cron(self._cron),
         )
 
@@ -943,9 +944,11 @@ Append a test that the definitions load and include the space-track assets (this
 ```python
 def test_definitions_include_spacetrack_assets():
     from auspex_lakehouse.definitions import defs
-    keys = {k.to_user_string() for k in defs.get_asset_graph().all_asset_keys}
-    assert any("spacetrack_gp" in k for k in keys)
-    assert any("spacetrack_decay" in k for k in keys)
+    graph = defs.resolve_asset_graph()
+    st_keys = {k.to_user_string() for k in graph.asset_keys_for_group("spacetrack")}
+    assert len(st_keys) >= 6, f"Expected at least 6 spacetrack assets; got {st_keys}"
+    assert "dlt_spacetrack_gp" in st_keys, f"Missing dlt_spacetrack_gp; got {st_keys}"
+    assert "dlt_spacetrack_decay" in st_keys, f"Missing dlt_spacetrack_decay; got {st_keys}"
 ```
 
 - [ ] **Step 2: Run the full suite**

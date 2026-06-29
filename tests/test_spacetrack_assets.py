@@ -1,9 +1,32 @@
-from dagster import AssetsDefinition
+from dagster import AssetKey, AssetsDefinition
 
 
 def _load():
     import auspex_lakehouse.bronze.dlt.assets as a
     return a
+
+
+def test_spacetrack_asset_keys():
+    """All six space-track assets must produce provider-scoped dlt_spacetrack_<name> keys."""
+    a = _load()
+    asset_defs = [
+        a.spacetrack_gp_assets,
+        a.spacetrack_satcat_assets,
+        a.spacetrack_boxscore_assets,
+        a.spacetrack_decay_assets,
+        a.spacetrack_cdm_assets,
+        a.spacetrack_tip_assets,
+    ]
+    all_keys = {key for ad in asset_defs for key in ad.keys}
+    expected = {
+        AssetKey("dlt_spacetrack_gp"),
+        AssetKey("dlt_spacetrack_satcat"),
+        AssetKey("dlt_spacetrack_boxscore"),
+        AssetKey("dlt_spacetrack_decay"),
+        AssetKey("dlt_spacetrack_cdm"),
+        AssetKey("dlt_spacetrack_tip"),
+    }
+    assert all_keys == expected, f"Unexpected asset keys: {all_keys}"
 
 
 def test_six_spacetrack_assets_exist():

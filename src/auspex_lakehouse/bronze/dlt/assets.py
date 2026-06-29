@@ -204,6 +204,7 @@ class SpaceTrackDltTranslator(DagsterDltTranslator):
 
     def get_asset_spec(self, data: DltResourceTranslatorData):
         return super().get_asset_spec(data).replace_attributes(
+            key=AssetKey(f"dlt_spacetrack_{data.resource.name}"),
             automation_condition=AutomationCondition.on_cron(self._cron),
         )
 

@@ -392,10 +392,9 @@ spacetrack_cdm_assets      = _incremental_assets("cdm")
 spacetrack_tip_assets      = _incremental_assets("tip")
 ```
 
-Asset keys follow dlt's convention `dlt_<pipeline_name>_<resource>`, e.g.
-`dlt_spacetrack_gp_gp`, `dlt_spacetrack_decay_decay`. (The pipeline-name = resource-name
-per class makes the key read doubled; acceptable, or set a distinct pipeline name if the
-doubling bothers — cosmetic only.) The `pool="spacetrack_api"` binding (verified) means
+Asset keys are provider-scoped via `SpaceTrackDltTranslator.get_asset_spec`, which overrides
+the default `dlt_<source_name>_<resource_name>` key to `dlt_spacetrack_<name>`, e.g.
+`dlt_spacetrack_gp`, `dlt_spacetrack_decay`. The `pool="spacetrack_api"` binding (verified) means
 ≤1 space-track op in flight, so the six assets never log in or query simultaneously.
 
 > **Login count:** six assets × one login per run = up to 6 logins/day in steady state
@@ -479,9 +478,10 @@ scope.
 - **Sources/pipelines:** `snapshot_source("gp")` / `incremental_source("decay", ...)`
   each expose one resource of the right name; constructing with `session=None` makes no
   HTTP call; `spacetrack_pipelines` has 6 entries with distinct names.
-- **Wiring:** the six module-level asset defs exist; keys `dlt_spacetrack_<name>_<name>`
-  in group `spacetrack`; snapshot assets unpartitioned, incremental use `daily_partitions`;
-  every op has `pool == "spacetrack_api"`.
+- **Wiring:** the six module-level asset defs exist; keys `dlt_spacetrack_<name>`
+  (e.g. `dlt_spacetrack_gp`, `dlt_spacetrack_decay`) in group `spacetrack`; snapshot
+  assets unpartitioned, incremental use `daily_partitions`; every op has
+  `pool == "spacetrack_api"`.
 - **Smoke:** `test_definitions_load` still loads (no import-time HTTP/Delta).
 
 ## First implementation step — live API verification (⚠ required)
