@@ -14,15 +14,26 @@ returning a list of space-weather events, merged on the event's natural ID.
 ## Constraints & Principles
 
 - **NASA API budget: 1000 calls/hour, shared across all NASA endpoints.** DONKI
-  is cheap — exactly **one call per endpoint per partition-day** (11 calls/day) —
-  but a parallel backfill must still be bounded. DONKI joins the existing
-  `nasa_api` concurrency pool (limit 1) so all NASA API access is serialized.
+  is cheap in steady state — exactly **one call per endpoint per partition-day**
+  (11 calls/day). DONKI joins the existing `nasa_api` concurrency pool (limit 1)
+  so NASA API access is serialized. **The pool bounds *concurrency*, not *rate*:**
+  it prevents parallel double-spend, but a *continuous full-history backfill*
+  (~180 partitions × 11 calls ≈ 2000 calls back-to-back) can still run at
+  ~1000–1300 calls/hr and trip the budget. See *Resilience & backfill* below —
+  the mitigation is to backfill in small date-range batches, not a code change.
 - **Uniform endpoints → one factory.** The 11 endpoints differ only by path,
   primary key, and (for 1 of them) a fixed extra query param. A single resource
   factory + a config registry keeps the layer concise.
 - **Bronze = raw.** Land the full event payload; dlt normalizes nested arrays
   (`cmeAnalyses`, `linkedEvents`, `allKpIndex`, `instruments`,
-  `sentNotifications`) into child tables. Flattening/curation is a silver concern.
+  `sentNotifications`, and deeper ones like `cmeAnalyses__enlilList`) into child
+  tables. Expect this to produce **many Delta tables** — plausibly ~40–60 across
+  the 11 endpoints (parent + child). That is the intended bronze=raw outcome;
+  silver consolidates. Flattening/curation is a silver concern.
+- **No refresh.** Each partition is fetched once (cron tick); DONKI rows carry
+  `versionId`/`submissionTime`, so a record updated or late-submitted after its
+  partition ran is not re-captured. Acceptable for bronze; revisit if downstream
+  needs the latest version.
 - **Keep Dagster layers clean and concise.**
 
 ## Design Decisions
@@ -102,10 +113,22 @@ DONKI_ENDPOINTS = [
 ```
 
 **Why no per-ID fault tolerance / dedupe (unlike NEO lookup):** DONKI endpoints
-are *bulk list* queries, not per-ID lookups. A `429`/`5xx` simply fails the run
-via `raise_for_status()` and Dagster retries; there is no poison-pill-ID risk and
-no need to read prior state. The `isinstance(data, list)` guard tolerates empty
-days (`[]`) and any non-list error body without writing junk rows.
+are *bulk list* queries, not per-ID lookups, so there is no poison-pill-ID risk
+and no need to read prior state. A `429`/`5xx` fails the run loudly via
+`raise_for_status()` (a *visible* failed partition you can re-materialize — there
+is **no automatic retry**; `dlt_assets` does not accept `retry_policy`, and
+instance run-retries have no backoff so they wouldn't help a rate-limit). The
+`isinstance(data, list)` guard tolerates empty days (`[]`); note it also silently
+skips a non-list 200 body (an unusual error response would look like an empty day
+— acceptable, low risk).
+
+**All-or-nothing across the 11 endpoints (accepted):** all 11 resources run in
+one `donki_source` / one `dlt_assets` op. dlt extracts the whole source then
+loads atomically, so if one endpoint raises (e.g. a 429 on the 6th call), nothing
+commits and the partition fails — the other 10 (successful) calls are wasted and
+a re-run re-fetches all 11. This is the simplicity trade-off vs. NEO's per-ID
+fault tolerance; it is fine given DONKI's low steady-state volume and pool
+serialization, but a backfill that trips the budget will fail whole partitions.
 
 ## Component 2 — Source + pipeline (`sources/nasa/donki.py`)
 
@@ -168,23 +191,40 @@ during backfills.
 
 ## CMEAnalysis caveat (accepted)
 
-`CMEAnalysis` has no natural unique ID: `associatedCMEID` repeats (multiple
-analyses per CME). We merge on the composite `["associatedCMEID", "time21_5"]`,
-which is *usually* unique but not guaranteed — two analyses sharing both values
-would upsert-collide (one overwrites the other). It also overlaps the
-`cme__cme_analyses` child table that the `cme` resource already produces. This is
-accepted for bronze; silver should treat `cme_analysis` as best-effort and prefer
-the CME-nested analyses where exactness matters. Documented so it isn't mistaken
-for a clean key.
+`CMEAnalysis` has no single natural unique ID (`associatedCMEID` repeats — many
+analyses per CME). We merge on the composite `["associatedCMEID", "time21_5"]`.
+On a live 138-row sample (May 2024) this composite had **0 null `time21_5` and 0
+collisions**, so it is sound in practice; it is *theoretically* possible (not
+observed) for two analyses to share both values and upsert-collide. `cme_analysis`
+also overlaps the `cme__cme_analyses` child table the `cme` resource already
+produces. Accepted for bronze; silver should prefer the CME-nested analyses where
+exactness matters. Documented so the composite key isn't mistaken for a
+guaranteed-unique one.
 
 ## Error Handling
 
 | Situation | Behavior |
 |-----------|----------|
 | Empty day (`[]`) | Resource yields nothing; no rows written; no error |
-| Non-list error body (200) | `isinstance(data, list)` guard skips it; yields nothing |
-| `429` / `5xx` | `raise_for_status()` fails the run; Dagster retries (low risk — DONKI is 1 call/endpoint/day and pool-serialized) |
-| Backfill fan-out | Bounded by the `nasa_api` pool (limit 1); DONKI runs serialize |
+| Non-list 200 body | `isinstance(data, list)` guard skips it silently (looks like an empty day) |
+| `429` / `5xx` | `raise_for_status()` fails the partition loudly; **no auto-retry** — re-materialize to recover. Atomic across all 11 endpoints (see above) |
+| Backfill *concurrency* | Bounded by the `nasa_api` pool (limit 1); DONKI runs serialize against neo_lookup |
+| Backfill *rate* | NOT bounded by the pool — see *Resilience & backfill* |
+
+## Resilience & backfill
+
+Steady-state daily runs (one partition, ~11 calls) are far under budget and will
+not 429. The risk is a **full-history backfill**: pool serialization caps
+concurrency but not request *rate*, so running ~180 partitions back-to-back
+(~1000–1300 calls/hr, plus neo_lookup/apod/neows on the same budget) can trip
+1000/hr and fail partitions — and there is no automatic retry.
+
+**Mitigation (operational, no code):** backfill DONKI in **small date-range
+batches** (e.g. a week or two at a time, or with limited run concurrency) rather
+than launching the whole history at once; re-run any partitions that 429. The
+real fix — an hourly per-provider rate-budget scheduler that drains within
+budget — remains out of scope. This is the same "backfill gently" guidance the
+NEO-lookup work landed with.
 
 ## Testing
 
