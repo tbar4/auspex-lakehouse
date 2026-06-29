@@ -20,3 +20,13 @@ def test_neo_lookup_asset_is_pooled():
         if isinstance(a, AssetsDefinition) and AssetKey(["neo_lookup"]) in a.keys
     )
     assert ad.op.pool == "nasa_api"
+
+
+def test_dagster_yaml_defines_nasa_pool():
+    import pathlib
+
+    import yaml
+
+    cfg = yaml.safe_load(pathlib.Path("dagster.yaml").read_text())
+    pool = cfg["concurrency"]["pools"]["nasa_api"]
+    assert pool["limit"] == 1
