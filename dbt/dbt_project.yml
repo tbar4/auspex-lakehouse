@@ -7,3 +7,5 @@ models:
   auspex_lakehouse:
     bronze:
       +materialized: view
+flags:
+  require_generic_test_arguments_property: true
