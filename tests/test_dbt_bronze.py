@@ -20,6 +20,8 @@ def test_20_bronze_assets_with_lineage():
             # space-track
             "space_track_general_perturbations", "space_track_satellite_catalog", "space_track_boxscore",
             "space_track_decays", "space_track_conjunction_data_messages", "space_track_tracking_and_impact_predictions",
+            # celestrak
+            "celestrak_space_weather",
         ]
     }
     assert expected <= keys, f"missing: {expected - keys}"
@@ -29,3 +31,7 @@ def test_20_bronze_assets_with_lineage():
     assert AssetKey(["nasa_near_earth_object_lookups"]) in ag.get(AssetKey(["bronze_nasa_near_earth_object_lookups"])).parent_keys
     assert AssetKey(["dlt_space_track_general_perturbations"]) in ag.get(AssetKey(["bronze_space_track_general_perturbations"])).parent_keys
     assert AssetKey(["dlt_space_track_conjunction_data_messages"]) in ag.get(AssetKey(["bronze_space_track_conjunction_data_messages"])).parent_keys
+    assert (
+        AssetKey(["dlt_celestrak_space_weather"])
+        in ag.get(AssetKey(["bronze_celestrak_space_weather"])).parent_keys
+    )

@@ -48,14 +48,23 @@ sources:
         description: "DONKI space-weather notifications/reports of all types (api.nasa.gov /DONKI/notifications)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_notifications"]}}
       - name: space_track_general_perturbations
+        description: "space-track General Perturbations — latest orbital element set (OMM/TLE) per catalogued object (space-track.org class 'gp')."
         meta: {dagster: {asset_key: ["dlt_space_track_general_perturbations"]}}
       - name: space_track_satellite_catalog
+        description: "space-track Satellite Catalog — current metadata for every catalogued object (space-track.org class 'satcat')."
         meta: {dagster: {asset_key: ["dlt_space_track_satellite_catalog"]}}
       - name: space_track_boxscore
+        description: "space-track Boxscore — on-orbit and decayed object counts by country/organization (space-track.org class 'boxscore')."
         meta: {dagster: {asset_key: ["dlt_space_track_boxscore"]}}
       - name: space_track_decays
+        description: "space-track Decay messages — predicted and observed re-entry/decay events (space-track.org class 'decay')."
         meta: {dagster: {asset_key: ["dlt_space_track_decays"]}}
       - name: space_track_conjunction_data_messages
+        description: "space-track public Conjunction Data Messages — predicted close approaches between objects (space-track.org class 'cdm_public')."
         meta: {dagster: {asset_key: ["dlt_space_track_conjunction_data_messages"]}}
       - name: space_track_tracking_and_impact_predictions
+        description: "space-track Tracking and Impact Prediction messages for decaying objects (space-track.org class 'tip')."
         meta: {dagster: {asset_key: ["dlt_space_track_tracking_and_impact_predictions"]}}
+      - name: celestrak_space_weather
+        description: "CelesTrak consolidated daily space weather — one row per date (F10.7 solar flux observed/adjusted + 81-day averages, 3-hourly & daily Ap/Kp, sunspot number; F10.7_DATA_TYPE flags OBS/INT/PRD/PRM). Drag-driver inputs for orbit propagation (celestrak.org/SpaceData/SW-All.csv)."
+        meta: {dagster: {asset_key: ["dlt_celestrak_space_weather"]}}

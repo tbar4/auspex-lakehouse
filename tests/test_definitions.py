@@ -22,3 +22,10 @@ def test_definitions_include_spacetrack_assets():
     assert len(st_keys) >= 6, f"Expected at least 6 spacetrack assets; got {st_keys}"
     assert "dlt_space_track_general_perturbations" in st_keys, f"Missing gp key; got {st_keys}"
     assert "dlt_space_track_decays" in st_keys, f"Missing decay key; got {st_keys}"
+
+
+def test_definitions_include_celestrak_asset():
+    from auspex_lakehouse.definitions import defs
+    graph = defs.resolve_asset_graph()
+    keys = {k.to_user_string() for k in graph.asset_keys_for_group("celestrak")}
+    assert "dlt_celestrak_space_weather" in keys, f"got {keys}"
