@@ -17,11 +17,11 @@ def test_definitions_load():
 def test_definitions_include_spacetrack_assets():
     from auspex_lakehouse.definitions import defs
     graph = defs.resolve_asset_graph()
-    # SpaceTrackDltTranslator overrides the default dlt key to dlt_spacetrack_<name>.
+    # SpaceTrackDltTranslator overrides the default dlt key to dlt_space_track_<name>.
     st_keys = {k.to_user_string() for k in graph.asset_keys_for_group("spacetrack")}
     assert len(st_keys) >= 6, f"Expected at least 6 spacetrack assets; got {st_keys}"
-    assert "dlt_spacetrack_gp" in st_keys, f"Missing dlt_spacetrack_gp; got {st_keys}"
-    assert "dlt_spacetrack_decay" in st_keys, f"Missing dlt_spacetrack_decay; got {st_keys}"
+    assert "dlt_space_track_general_perturbations" in st_keys, f"Missing gp key; got {st_keys}"
+    assert "dlt_space_track_decays" in st_keys, f"Missing decay key; got {st_keys}"
 
 
 def test_definitions_include_celestrak_asset():

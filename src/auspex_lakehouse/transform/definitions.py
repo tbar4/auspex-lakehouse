@@ -10,31 +10,35 @@ dbt_project = DbtProject(
 dbt_project.prepare_if_dev()
 
 _SOURCE_ASSET_KEYS = {
-    "apod": AssetKey(["dlt_nasa_api_apod"]),
-    "neows": AssetKey(["dlt_nasa_api_neows"]),
-    "neo_lookup": AssetKey(["neo_lookup"]),
+    "nasa_astronomy_picture_of_the_day": AssetKey(["dlt_nasa_astronomy_picture_of_the_day"]),
+    "nasa_near_earth_object_feed": AssetKey(["dlt_nasa_near_earth_object_feed"]),
+    "nasa_near_earth_object_lookups": AssetKey(["nasa_near_earth_object_lookups"]),
     **{
-        t: AssetKey([f"dlt_nasa_donki_{t}"])
+        t: AssetKey([f"dlt_{t}"])
         for t in [
-            "cme",
-            "cme_analysis",
-            "gst",
-            "ips",
-            "flr",
-            "sep",
-            "mpc",
-            "rbe",
-            "hss",
-            "wsa_enlil_simulations",
-            "notifications",
+            "nasa_donki_coronal_mass_ejections",
+            "nasa_donki_coronal_mass_ejection_analyses",
+            "nasa_donki_geomagnetic_storms",
+            "nasa_donki_interplanetary_shocks",
+            "nasa_donki_solar_flares",
+            "nasa_donki_solar_energetic_particles",
+            "nasa_donki_magnetopause_crossings",
+            "nasa_donki_radiation_belt_enhancements",
+            "nasa_donki_high_speed_streams",
+            "nasa_donki_wsa_enlil_simulations",
+            "nasa_donki_notifications",
         ]
     },
-    "gp": AssetKey(["dlt_spacetrack_gp"]),
-    "satcat": AssetKey(["dlt_spacetrack_satcat"]),
-    "boxscore": AssetKey(["dlt_spacetrack_boxscore"]),
-    "decay": AssetKey(["dlt_spacetrack_decay"]),
-    "cdm": AssetKey(["dlt_spacetrack_cdm"]),
-    "tip": AssetKey(["dlt_spacetrack_tip"]),
+    "space_track_general_perturbations": AssetKey(["dlt_space_track_general_perturbations"]),
+    "space_track_satellite_catalog": AssetKey(["dlt_space_track_satellite_catalog"]),
+    "space_track_boxscore": AssetKey(["dlt_space_track_boxscore"]),
+    "space_track_decays": AssetKey(["dlt_space_track_decays"]),
+    "space_track_conjunction_data_messages": AssetKey(
+        ["dlt_space_track_conjunction_data_messages"]
+    ),
+    "space_track_tracking_and_impact_predictions": AssetKey(
+        ["dlt_space_track_tracking_and_impact_predictions"]
+    ),
     "celestrak_space_weather": AssetKey(["dlt_celestrak_space_weather"]),
 }
 

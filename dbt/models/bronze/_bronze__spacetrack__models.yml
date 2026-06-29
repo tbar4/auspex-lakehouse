@@ -1,6 +1,6 @@
 version: 2
 models:
-  - name: bronze_gp
+  - name: bronze_space_track_general_perturbations
     description: >
       Latest General Perturbations element set (OMM/TLE) per catalogued object —
       one row per NORAD ID. Source class 'gp'.
@@ -37,7 +37,7 @@ models:
       - {name: tle_line1, description: "TLE line 1."}
       - {name: tle_line2, description: "TLE line 2."}
       - {name: creation_date, description: "Time the element set was created (ISO-8601 UTC)."}
-  - name: bronze_satcat
+  - name: bronze_space_track_satellite_catalog
     description: >
       Satellite Catalog — current metadata for every catalogued object, one row per
       NORAD ID. Source class 'satcat' (CURRENT='Y').
@@ -65,7 +65,7 @@ models:
       - {name: object_number, description: "Object number (same as norad_cat_id where present)."}
       - {name: comment, description: "Catalog comment."}
       - {name: file, description: "space-track internal file/batch id."}
-  - name: bronze_boxscore
+  - name: bronze_space_track_boxscore
     description: >
       Boxscore — counts of on-orbit and decayed objects by country/organization.
       Full-replace snapshot (no per-row history). Source class 'boxscore'.
@@ -82,7 +82,7 @@ models:
       - {name: decayed_debris_count, description: "Decayed debris count."}
       - {name: decayed_total_count, description: "Total decayed object count."}
       - {name: country_total, description: "Grand total of objects attributed to the country/organization."}
-  - name: bronze_decay
+  - name: bronze_space_track_decays
     description: >
       Decay messages — predicted and observed re-entry events. One row per
       (norad_cat_id, msg_epoch, precedence). Source class 'decay'.
@@ -103,7 +103,7 @@ models:
       - {name: decay_epoch, description: "Predicted or observed decay/re-entry time (ISO-8601 UTC)."}
       - {name: source, description: "Source of the decay message."}
       - {name: msg_type, description: "Message type (e.g. prediction vs observation)."}
-  - name: bronze_cdm
+  - name: bronze_space_track_conjunction_data_messages
     description: >
       Public Conjunction Data Messages — predicted close approaches between two
       objects. One row per CDM. Source class 'cdm_public'.
@@ -124,7 +124,7 @@ models:
       - {name: sat2_object_type, description: "Object type of the secondary object."}
       - {name: sat2_rcs, description: "Radar cross-section size of the secondary object."}
       - {name: sat_2_excl_vol, description: "Exclusion-volume radius of the secondary object (km)."}
-  - name: bronze_tip
+  - name: bronze_space_track_tracking_and_impact_predictions
     description: >
       Tracking and Impact Prediction messages for decaying objects. One row per
       (norad_cat_id, msg_epoch). Source class 'tip'.
