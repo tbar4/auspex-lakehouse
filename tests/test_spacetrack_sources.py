@@ -93,3 +93,8 @@ def test_pipelines_dict_has_all_six():
     assert set(spacetrack_pipelines) == {"gp", "satcat", "boxscore", "decay", "cdm", "tip"}
     assert spacetrack_pipelines["gp"].pipeline_name == "spacetrack_gp"
     assert spacetrack_pipelines["decay"].dataset_name == "bronze"
+
+
+def test_pool_constant():
+    from auspex_lakehouse.bronze.dlt.sources.spacetrack.config import SPACETRACK_API_POOL
+    assert SPACETRACK_API_POOL == "spacetrack_api"

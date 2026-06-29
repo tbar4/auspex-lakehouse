@@ -22,3 +22,6 @@ concurrency:
     nasa_api:
       limit: 1
       granularity: 'op'
+    spacetrack_api:        # separate provider, separate budget
+      limit: 1
+      granularity: 'op'
