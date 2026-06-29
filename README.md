@@ -67,7 +67,7 @@ for the design.
 
    `.env` is loaded by `dagster dev` locally and injected into the containers via
    `env_file:`. dlt reads `NASA_API_KEY` and `DESTINATION__FILESYSTEM__*` from these
-   env vars; the `apod_images` asset reads `MINIO_*` / `BRONZE_*`. No secrets are
+   env vars; the `nasa_astronomy_picture_of_the_day_images` asset reads `MINIO_*` / `BRONZE_*`. No secrets are
    baked into the images.
 
 2. Build and start the stack:
