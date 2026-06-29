@@ -22,11 +22,14 @@ def test_neo_lookup_asset_is_pooled():
     assert ad.op.pool == "nasa_api"
 
 
-def test_dagster_yaml_defines_nasa_pool():
+def test_dagster_yaml_defines_pool_default():
     import pathlib
 
     import yaml
 
-    cfg = yaml.safe_load(pathlib.Path("dagster.yaml").read_text())
-    pool = cfg["concurrency"]["pools"]["nasa_api"]
-    assert pool["limit"] == 1
+    # The instance config lives at deploy/dagster.yaml and sets an instance-wide
+    # pool default (named pools aren't valid here); each pool (nasa_api,
+    # spacetrack_api) inherits this default_limit unless raised via the UI/CLI.
+    cfg = yaml.safe_load(pathlib.Path("deploy/dagster.yaml").read_text())
+    pools = cfg["concurrency"]["pools"]
+    assert pools["default_limit"] == 1

@@ -11,11 +11,15 @@ from dagster_dlt.translator import DltResourceTranslatorData
 
 from auspex_lakehouse.bronze.dlt.sources import (
     donki_source,
+    incremental_source,
+    login_session,
     nasa_api,
     nasa_donki_pipeline,
     nasa_neo_lookup_pipeline,
     nasa_pipeline,
     neo_lookup_rows,
+    snapshot_source,
+    spacetrack_pipelines,
 )
 from auspex_lakehouse.bronze.dlt.sources.nasa._common import nasa_api_key
 from auspex_lakehouse.bronze.dlt.sources.nasa.config import (
@@ -27,6 +31,7 @@ from auspex_lakehouse.bronze.dlt.sources.nasa.neo_lookup import (
     fetch_neo_lookups,
     select_neo_work_ids,
 )
+from auspex_lakehouse.bronze.dlt.sources.spacetrack.config import SPACETRACK_API_POOL
 from auspex_lakehouse.partitions import daily_partitions
 from auspex_lakehouse.resources.delta import bronze_table_exists, read_bronze_table
 
@@ -185,6 +190,76 @@ def neo_lookup(context: AssetExecutionContext):
             "deferred_on_stop": len(stats.deferred_on_stop),
         }
     )
+
+
+# ---- space-track.org: one isolated pipeline + asset per class ----
+
+# Staggered after SATCAT's 1700 UTC update; off-the-hour minutes (they serialize on
+# the pool regardless, but staggering keeps the scheduler tidy).
+_ST_SNAPSHOT_CRON = {"gp": "11 18 * * *", "satcat": "21 18 * * *", "boxscore": "31 18 * * *"}
+_ST_INCREMENTAL_CRON = {"decay": "41 18 * * *", "cdm": "46 18 * * *", "tip": "51 18 * * *"}
+
+
+class SpaceTrackDltTranslator(DagsterDltTranslator):
+    def __init__(self, cron: str):
+        self._cron = cron
+        super().__init__()
+
+    def get_asset_spec(self, data: DltResourceTranslatorData):
+        return super().get_asset_spec(data).replace_attributes(
+            key=AssetKey(f"dlt_spacetrack_{data.resource.name}"),
+            automation_condition=AutomationCondition.on_cron(self._cron),
+        )
+
+
+def _spacetrack_snapshot_assets(name: str):
+    @dlt_assets(
+        dlt_source=snapshot_source(name),                 # session=None at import
+        dlt_pipeline=spacetrack_pipelines[name],
+        name=f"spacetrack_{name}_bronze",
+        group_name="spacetrack",
+        dagster_dlt_translator=SpaceTrackDltTranslator(_ST_SNAPSHOT_CRON[name]),
+        pool=SPACETRACK_API_POOL,
+    )
+    def _assets(context: AssetExecutionContext, dlt: DagsterDltResource):
+        session = login_session()                          # one login per run
+        yield from dlt.run(
+            context=context, dlt_source=snapshot_source(name, session=session)
+        )
+
+    return _assets
+
+
+def _spacetrack_incremental_assets(name: str):
+    @dlt_assets(
+        dlt_source=incremental_source(name, start_date=date.today(), end_date=date.today()),
+        dlt_pipeline=spacetrack_pipelines[name],
+        name=f"spacetrack_{name}_bronze",
+        group_name="spacetrack",
+        partitions_def=daily_partitions,
+        dagster_dlt_translator=SpaceTrackDltTranslator(_ST_INCREMENTAL_CRON[name]),
+        pool=SPACETRACK_API_POOL,
+    )
+    def _assets(context: AssetExecutionContext, dlt: DagsterDltResource):
+        rng = context.partition_key_range
+        session = login_session()                          # one login per run
+        source = incremental_source(
+            name,
+            start_date=date.fromisoformat(rng.start),
+            end_date=date.fromisoformat(rng.end),
+            session=session,
+        )
+        yield from dlt.run(context=context, dlt_source=source)
+
+    return _assets
+
+
+spacetrack_gp_assets = _spacetrack_snapshot_assets("gp")
+spacetrack_satcat_assets = _spacetrack_snapshot_assets("satcat")
+spacetrack_boxscore_assets = _spacetrack_snapshot_assets("boxscore")
+spacetrack_decay_assets = _spacetrack_incremental_assets("decay")
+spacetrack_cdm_assets = _spacetrack_incremental_assets("cdm")
+spacetrack_tip_assets = _spacetrack_incremental_assets("tip")
 
 
 class DonkiDltTranslator(DagsterDltTranslator):
