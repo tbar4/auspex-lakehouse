@@ -1,0 +1,38 @@
+version: 2
+models:
+  - name: bronze_apod
+    columns: [{name: date, data_tests: [not_null, unique]}]
+  - name: bronze_neows
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date, id]
+    columns: [{name: date, data_tests: [not_null]}, {name: id, data_tests: [not_null]}]
+  - name: bronze_neo_lookup
+    columns: [{name: neo_reference_id, data_tests: [not_null, unique]}]
+  - name: bronze_cme
+    columns: [{name: activity_id, data_tests: [not_null, unique]}]
+  - name: bronze_cme_analysis
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [associated_cmeid, time21_5]
+    columns: [{name: associated_cmeid, data_tests: [not_null]}]
+  - name: bronze_gst
+    columns: [{name: gst_id, data_tests: [not_null, unique]}]
+  - name: bronze_ips
+    columns: [{name: activity_id, data_tests: [not_null, unique]}]
+  - name: bronze_flr
+    columns: [{name: flr_id, data_tests: [not_null, unique]}]
+  - name: bronze_sep
+    columns: [{name: sep_id, data_tests: [not_null, unique]}]
+  - name: bronze_mpc
+    columns: [{name: mpc_id, data_tests: [not_null, unique]}]
+  - name: bronze_rbe
+    columns: [{name: rbe_id, data_tests: [not_null, unique]}]
+  - name: bronze_hss
+    columns: [{name: hss_id, data_tests: [not_null, unique]}]
+  - name: bronze_wsa_enlil_simulations
+    columns: [{name: simulation_id, data_tests: [not_null, unique]}]
+  - name: bronze_notifications
+    columns: [{name: message_id, data_tests: [not_null, unique]}]
