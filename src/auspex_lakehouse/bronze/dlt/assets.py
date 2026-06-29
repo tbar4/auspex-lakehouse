@@ -8,10 +8,10 @@ import requests
 from dagster import AssetExecutionContext, AssetKey, AutomationCondition, asset
 from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
 from dagster_dlt.translator import DltResourceTranslatorData
-from deltalake import DeltaTable
 
 from auspex_lakehouse.bronze.dlt.sources import nasa_api, nasa_pipeline
 from auspex_lakehouse.partitions import daily_partitions
+from auspex_lakehouse.resources.delta import read_bronze_table
 
 
 class NasaDltTranslator(DagsterDltTranslator):
@@ -53,20 +53,7 @@ def nasa_api_assets(
 def apod_images(context: AssetExecutionContext):
     partition_key = context.partition_key
 
-    dt = DeltaTable(
-        f"{os.environ['BRONZE_BUCKET_URI']}/bronze/apod",
-        storage_options = {
-            "AWS_ACCESS_KEY_ID": os.environ["MINIO_ACCESS_KEY"],
-            "AWS_SECRET_ACCESS_KEY": os.environ["MINIO_SECRET_KEY"],
-            "AWS_ENDPOINT_URL":      os.environ["MINIO_ENDPOINT"],
-            "AWS_ALLOW_HTTP":        "true",
-            "AWS_REGION":            "us-west-1",
-        },
-    )
-
-    df = pl.from_arrow(dt.to_pyarrow_table()).filter(
-        pl.col("date") == partition_key
-    )
+    df = read_bronze_table("apod").filter(pl.col("date") == partition_key)
 
     s3 = boto3.client(
         "s3",
