@@ -47,7 +47,9 @@ DONKI_ENDPOINTS = [
 ]
 
 
-@dlt.source
+# name="nasa_donki" → dagster-dlt asset keys become dlt_nasa_donki_<resource>
+# (the export stays donki_source).
+@dlt.source(name="nasa_donki")
 def donki_source(start_date: date, end_date: date):
     return [
         _donki_resource(name, path, pk, extra)(start_date, end_date)

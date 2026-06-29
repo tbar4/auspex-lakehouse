@@ -10,7 +10,9 @@ from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
 from dagster_dlt.translator import DltResourceTranslatorData
 
 from auspex_lakehouse.bronze.dlt.sources import (
+    donki_source,
     nasa_api,
+    nasa_donki_pipeline,
     nasa_neo_lookup_pipeline,
     nasa_pipeline,
     neo_lookup_rows,
@@ -182,3 +184,28 @@ def neo_lookup(context: AssetExecutionContext):
             "deferred_on_stop": len(stats.deferred_on_stop),
         }
     )
+
+
+class DonkiDltTranslator(DagsterDltTranslator):
+    def get_asset_spec(self, data: DltResourceTranslatorData):
+        return super().get_asset_spec(data).replace_attributes(
+            automation_condition=AutomationCondition.on_cron("0 7 * * *"),
+        )
+
+
+@dlt_assets(
+    dlt_source=donki_source(start_date=date.today(), end_date=date.today()),
+    dlt_pipeline=nasa_donki_pipeline,
+    name="nasa_donki_bronze",
+    group_name="donki",
+    partitions_def=daily_partitions,
+    dagster_dlt_translator=DonkiDltTranslator(),
+    pool="nasa_api",  # serialize DONKI runs against neo_lookup on the shared NASA budget
+)
+def donki_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
+    rng = context.partition_key_range
+    source = donki_source(
+        start_date=date.fromisoformat(rng.start),
+        end_date=date.fromisoformat(rng.end),
+    )
+    yield from dlt.run(context=context, dlt_source=source)
