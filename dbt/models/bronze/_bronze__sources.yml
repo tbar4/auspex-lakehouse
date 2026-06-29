@@ -6,32 +6,46 @@ sources:
       external_location: "delta_scan('s3://auspex-lakehouse/bronze/{name}')"
     tables:
       - name: apod
+        description: "NASA Astronomy Picture of the Day — one record per calendar date (api.nasa.gov /planetary/apod)."
         meta: {dagster: {asset_key: ["dlt_nasa_api_apod"]}}
       - name: neows
+        description: "Near-Earth Object Web Service daily feed — one row per asteroid per close-approach feed date (api.nasa.gov /neo/rest/v1/feed)."
         meta: {dagster: {asset_key: ["dlt_nasa_api_neows"]}}
       - name: neo_lookup
+        description: "Per-object NEO lookups enriched with orbital data; 'not_found' rows are 404 tombstones (api.nasa.gov /neo/rest/v1/neo/{id})."
         meta: {dagster: {asset_key: ["neo_lookup"]}}
       - name: cme
+        description: "DONKI Coronal Mass Ejection events (api.nasa.gov /DONKI/CME)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_cme"]}}
       - name: cme_analysis
+        description: "DONKI CME Analysis — kinematic measurements per CME (api.nasa.gov /DONKI/CMEAnalysis)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_cme_analysis"]}}
       - name: gst
+        description: "DONKI Geomagnetic Storm events (api.nasa.gov /DONKI/GST)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_gst"]}}
       - name: ips
+        description: "DONKI Interplanetary Shock events (api.nasa.gov /DONKI/IPS)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_ips"]}}
       - name: flr
+        description: "DONKI Solar Flare events (api.nasa.gov /DONKI/FLR)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_flr"]}}
       - name: sep
+        description: "DONKI Solar Energetic Particle events (api.nasa.gov /DONKI/SEP)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_sep"]}}
       - name: mpc
+        description: "DONKI Magnetopause Crossing events (api.nasa.gov /DONKI/MPC)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_mpc"]}}
       - name: rbe
+        description: "DONKI Radiation Belt Enhancement events (api.nasa.gov /DONKI/RBE)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_rbe"]}}
       - name: hss
+        description: "DONKI High Speed Stream events (api.nasa.gov /DONKI/HSS)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_hss"]}}
       - name: wsa_enlil_simulations
+        description: "DONKI WSA-Enlil heliospheric model simulations (api.nasa.gov /DONKI/WSAEnlilSimulations)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_wsa_enlil_simulations"]}}
       - name: notifications
+        description: "DONKI space-weather notifications/reports of all types (api.nasa.gov /DONKI/notifications)."
         meta: {dagster: {asset_key: ["dlt_nasa_donki_notifications"]}}
       - name: gp
         meta: {dagster: {asset_key: ["dlt_spacetrack_gp"]}}
