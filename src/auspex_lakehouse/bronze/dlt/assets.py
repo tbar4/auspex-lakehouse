@@ -1,4 +1,5 @@
 import os
+from contextlib import nullcontext
 from datetime import date, datetime, timezone
 from pathlib import PurePosixPath
 
@@ -6,6 +7,7 @@ import boto3
 import polars as pl
 import requests
 from dagster import AssetExecutionContext, AssetKey, AutomationCondition, asset
+from dagster._core.storage.tags import BACKFILL_ID_TAG
 from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
 from dagster_dlt.translator import DltResourceTranslatorData
 
@@ -34,6 +36,7 @@ from auspex_lakehouse.bronze.dlt.sources.nasa.neo_lookup import (
     fetch_neo_lookups,
     select_neo_work_ids,
 )
+from auspex_lakehouse.bronze.dlt.sources.spacetrack._common import force_test_host
 from auspex_lakehouse.bronze.dlt.sources.spacetrack.config import SPACETRACK_API_POOL
 from auspex_lakehouse.partitions import daily_partitions
 from auspex_lakehouse.resources.delta import bronze_table_exists, read_bronze_table
@@ -229,6 +232,20 @@ class SpaceTrackDltTranslator(DagsterDltTranslator):
         )
 
 
+def _spacetrack_host_ctx(context: AssetExecutionContext):
+    """Test host for a backfill run, else the default (env-or-prod) host.
+
+    A backfill fans space-track work across separate processes whose in-process rate
+    limiters can't see each other, so it trips space-track's ceiling and earns 429s.
+    Routing the whole backfill run to the unlimited test host avoids that — no
+    operator-set env var to forget. Applies to every space-track asset, snapshot and
+    incremental alike (snapshots ride along in mixed-selection backfills).
+    """
+    if BACKFILL_ID_TAG in context.run.tags:
+        return force_test_host()
+    return nullcontext()
+
+
 def _spacetrack_snapshot_assets(name: str):
     @dlt_assets(
         dlt_source=snapshot_source(name),                 # session=None at import
@@ -239,10 +256,11 @@ def _spacetrack_snapshot_assets(name: str):
         pool=SPACETRACK_API_POOL,
     )
     def _assets(context: AssetExecutionContext, dlt: DagsterDltResource):
-        session = login_session()                          # one login per run
-        yield from dlt.run(
-            context=context, dlt_source=snapshot_source(name, session=session)
-        )
+        with _spacetrack_host_ctx(context):
+            session = login_session()                      # one login per run
+            yield from dlt.run(
+                context=context, dlt_source=snapshot_source(name, session=session)
+            )
 
     return _assets
 
@@ -259,14 +277,15 @@ def _spacetrack_incremental_assets(name: str):
     )
     def _assets(context: AssetExecutionContext, dlt: DagsterDltResource):
         rng = context.partition_key_range
-        session = login_session()                          # one login per run
-        source = incremental_source(
-            name,
-            start_date=date.fromisoformat(rng.start),
-            end_date=date.fromisoformat(rng.end),
-            session=session,
-        )
-        yield from dlt.run(context=context, dlt_source=source)
+        with _spacetrack_host_ctx(context):
+            session = login_session()                      # one login per run
+            source = incremental_source(
+                name,
+                start_date=date.fromisoformat(rng.start),
+                end_date=date.fromisoformat(rng.end),
+                session=session,
+            )
+            yield from dlt.run(context=context, dlt_source=source)
 
     return _assets
 

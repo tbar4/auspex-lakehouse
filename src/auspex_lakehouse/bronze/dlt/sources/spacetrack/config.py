@@ -17,7 +17,16 @@ SPACETRACK_API_POOL = "spacetrack_api"  # Dagster pool serializing space-track A
 # Hard request-rate caps enforced in-process by the _RateLimiter in _common.py.
 # Login POST + auth probe + each query GET are ALL counted. Set conservatively under
 # space-track's published ceilings (<30/min, <300/hr) — plain headroom for clock jitter.
-# These bound a SINGLE run only; to backfill, flip SPACETRACK_USE_TEST_HOST=true and use
-# the unlimited test host (the throttle does NOT pace multi-run backfills — see design).
+# These bound a SINGLE run only and do NOT pace multi-run backfills. Backfill runs are
+# auto-routed to the unlimited test host by the asset (the dagster/backfill tag); set
+# SPACETRACK_USE_TEST_HOST=true to also force the test host for an ordinary manual run.
 SPACETRACK_MAX_PER_MIN = 25
 SPACETRACK_MAX_PER_HOUR = 250
+
+# A backfill fans partitions out across separate processes whose in-process limiters
+# cannot see one another, so the combined rate can still trip space-track's ceiling and
+# earn an HTTP 429. Rather than failing the whole asset, back off and retry: honor the
+# response's Retry-After header when present, else wait the default below. Caps the total
+# blocking at MAX_RETRIES * the wait, so a sustained 429 eventually surfaces as an error.
+SPACETRACK_MAX_RETRIES = 5
+SPACETRACK_RETRY_WAIT_DEFAULT_S = 60.0
