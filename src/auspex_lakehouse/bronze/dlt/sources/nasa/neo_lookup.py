@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -93,8 +95,40 @@ def neo_lookup_rows(rows: list[dict]):
     yield from rows
 
 
-nasa_neo_lookup_pipeline = dlt.pipeline(
-    pipeline_name="nasa_neo_lookup",   # distinct working dir -> no collision with nasa_api
-    destination="filesystem",
-    dataset_name="bronze",             # same bronze dataset -> lands at bronze/neo_lookup
-)
+def build_neo_lookup_pipeline(pipelines_dir: str | None = None):
+    """Build the NEO-lookup dlt pipeline.
+
+    `pipelines_dir` isolates dlt's local working directory. The asset passes a fresh
+    per-run dir (see load_neo_lookups) so a load package left partially written by an
+    interrupted run can never be resumed — and crash — on the next run. dlt otherwise
+    reuses one persistent working dir and re-tries pending packages across runs, which
+    is what failed in production (FileNotFoundError retrying a stale .reference job).
+    Merge correctness is destination-side (the Delta primary key), so the local working
+    dir is disposable.
+    """
+    return dlt.pipeline(
+        pipeline_name="nasa_neo_lookup",   # distinct working dir -> no collision with nasa_api
+        destination="filesystem",
+        dataset_name="bronze",             # same bronze dataset -> lands at bronze/neo_lookup
+        pipelines_dir=pipelines_dir,
+    )
+
+
+def load_neo_lookups(rows: list[dict]) -> None:
+    """Merge fetched NEO rows into the bronze Delta table via a disposable dlt working dir.
+
+    Each call gets its own temp working dir, removed afterward (success or failure), so no
+    partial/pending load package survives to poison a later run. Re-running is idempotent:
+    rows merge by neo_reference_id at the destination, so a discarded partial load is simply
+    re-fetched and re-merged next run.
+    """
+    pipelines_dir = tempfile.mkdtemp(prefix="dlt-nasa_neo_lookup-")
+    try:
+        build_neo_lookup_pipeline(pipelines_dir).run(neo_lookup_rows(rows))
+    finally:
+        shutil.rmtree(pipelines_dir, ignore_errors=True)
+
+
+# Module-level default instance kept for the public export contract; the asset loads via
+# load_neo_lookups (isolated per-run dir) rather than this shared-dir singleton.
+nasa_neo_lookup_pipeline = build_neo_lookup_pipeline()

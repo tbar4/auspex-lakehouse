@@ -19,9 +19,7 @@ from auspex_lakehouse.bronze.dlt.sources import (
     login_session,
     nasa_api,
     nasa_donki_pipeline,
-    nasa_neo_lookup_pipeline,
     nasa_pipeline,
-    neo_lookup_rows,
     snapshot_source,
     spacetrack_pipelines,
 )
@@ -34,6 +32,7 @@ from auspex_lakehouse.bronze.dlt.sources.nasa.config import (
 )
 from auspex_lakehouse.bronze.dlt.sources.nasa.neo_lookup import (
     fetch_neo_lookups,
+    load_neo_lookups,
     select_neo_work_ids,
 )
 from auspex_lakehouse.bronze.dlt.sources.spacetrack._common import force_test_host
@@ -177,7 +176,7 @@ def neo_lookup(context: AssetExecutionContext):
 
     rows, stats = fetch_neo_lookups(plan.selected, now.isoformat(), nasa_api_key())
     if rows:
-        nasa_neo_lookup_pipeline.run(neo_lookup_rows(rows))
+        load_neo_lookups(rows)
 
     if stats.stopped_on_rate_limit:
         context.log.warning(
