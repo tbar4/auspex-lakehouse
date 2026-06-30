@@ -60,7 +60,7 @@ def test_incremental_resource_windows_each_day(monkeypatch):
 
     def fake_query(session, cls, predicate, window):
         calls.append((cls, predicate, window))
-        return [{"id": window}]
+        return [{"NORAD_CAT_ID": 1, "id": window}]
 
     monkeypatch.setattr(inc, "query_class", fake_query)
     res = inc._incremental_resource("space_track_decays", "decay", ["NORAD_CAT_ID"], "MSG_EPOCH")
@@ -72,6 +72,33 @@ def test_incremental_resource_windows_each_day(monkeypatch):
     ]
     assert len(rows) == 2
     assert res.name == "space_track_decays"
+
+
+def test_incremental_resource_drops_rows_missing_primary_key(monkeypatch, caplog):
+    # TIP (and other merge resources) fail terminally in dlt normalize if a row is
+    # missing a primary-key column: get_row_hash over the key subset raises KeyError
+    # (or the delta/duckdb load rejects the null key). Such rows can't participate in
+    # the merge, so the resource must drop them — and say so — rather than crash.
+    def fake_query(session, cls, predicate, window):
+        return [
+            {"NORAD_CAT_ID": 1, "MSG_EPOCH": "2026-01-01"},   # keep
+            {"MSG_EPOCH": "2026-01-01"},                      # drop: NORAD_CAT_ID absent
+            {"NORAD_CAT_ID": None, "MSG_EPOCH": "2026-01-01"},  # drop: null key
+            {"NORAD_CAT_ID": "  ", "MSG_EPOCH": "2026-01-01"},  # drop: blank key
+            {"NORAD_CAT_ID": 2},                             # drop: MSG_EPOCH absent
+        ]
+
+    monkeypatch.setattr(inc, "query_class", fake_query)
+    res = inc._incremental_resource(
+        "space_track_tracking_and_impact_predictions", "tip",
+        ["NORAD_CAT_ID", "MSG_EPOCH"], "INSERT_EPOCH",
+    )
+    import logging
+    with caplog.at_level(logging.WARNING):
+        rows = list(res(Mock(), date(2026, 1, 1), date(2026, 1, 1)))
+
+    assert rows == [{"NORAD_CAT_ID": 1, "MSG_EPOCH": "2026-01-01"}]
+    assert "dropped 4" in caplog.text and "tip" in caplog.text
 
 
 def test_incremental_resource_non_list_yields_nothing(monkeypatch):
