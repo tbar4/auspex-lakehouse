@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
@@ -108,3 +109,51 @@ def test_fetch_404_continues_to_next_id(monkeypatch):
     assert stats.fetched_ok == 1
     assert rows[0]["lookup_status"] == "not_found"
     assert rows[1]["lookup_status"] == "ok"
+
+
+def test_build_neo_lookup_pipeline_isolates_working_dir(tmp_path):
+    p = nl.build_neo_lookup_pipeline(str(tmp_path))
+    assert p.pipeline_name == "nasa_neo_lookup"
+    assert p.dataset_name == "bronze"
+    assert p.pipelines_dir == str(tmp_path)
+
+
+def test_load_neo_lookups_uses_fresh_dir_and_cleans_up(monkeypatch):
+    # Each load runs in its own dlt working dir (so a partial package from an
+    # interrupted run can't poison the next run) and the dir is removed afterward.
+    seen = {}
+
+    class _FakePipe:
+        def run(self, data):
+            seen["dir_existed_during_run"] = os.path.isdir(seen["dir"])
+            seen["data"] = data
+
+    def _fake_build(pipelines_dir=None):
+        seen["dir"] = pipelines_dir
+        return _FakePipe()
+
+    monkeypatch.setattr(nl, "build_neo_lookup_pipeline", _fake_build)
+    nl.load_neo_lookups([{"neo_reference_id": "a"}])
+
+    assert seen["dir"] is not None
+    assert seen["dir_existed_during_run"] is True          # real dir present for the load
+    assert seen["data"].name == "nasa_near_earth_object_lookups"
+    assert not os.path.isdir(seen["dir"])                  # cleaned up after the load
+
+
+def test_load_neo_lookups_cleans_up_on_failure(monkeypatch):
+    seen = {}
+
+    class _BoomPipe:
+        def run(self, data):
+            raise RuntimeError("load blew up")
+
+    def _fake_build(pipelines_dir=None):
+        seen["dir"] = pipelines_dir
+        return _BoomPipe()
+
+    monkeypatch.setattr(nl, "build_neo_lookup_pipeline", _fake_build)
+    with pytest.raises(RuntimeError):
+        nl.load_neo_lookups([{"neo_reference_id": "a"}])
+    # even when the load raises, no working dir is left behind to poison the next run
+    assert not os.path.isdir(seen["dir"])
