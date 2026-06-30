@@ -3,6 +3,8 @@ import threading
 import time
 from collections import deque
 from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date, timedelta
 
 import dlt
@@ -11,6 +13,8 @@ import requests  # stdlib requests: cookie-session persistence across queries
 from auspex_lakehouse.bronze.dlt.sources.spacetrack.config import (
     SPACETRACK_MAX_PER_HOUR,
     SPACETRACK_MAX_PER_MIN,
+    SPACETRACK_MAX_RETRIES,
+    SPACETRACK_RETRY_WAIT_DEFAULT_S,
 )
 
 BASE_URL = "https://www.space-track.org"
@@ -18,13 +22,35 @@ DEV_BASE_URL = "https://for-testing-only.space-track.org"
 
 _TRUTHY = {"1", "true", "yes"}
 
+# Per-run override of the host choice. A backfill fans the same asset across many
+# processes; rather than relying on an operator to remember the env toggle, the asset
+# sets this for the run (see force_test_host) so every query in that run goes to the
+# unlimited test host. ContextVar (not a plain global) keeps the override scoped to the
+# run that set it. Extraction is single-threaded (see _RateLimiter) so the value is
+# visible to every query_class/login_session call in the run.
+_force_test_host: ContextVar[bool] = ContextVar("spacetrack_force_test_host", default=False)
+
+
+@contextmanager
+def force_test_host():
+    """Force the test host for the duration of the block, restoring the prior state after."""
+    token = _force_test_host.set(True)
+    try:
+        yield
+    finally:
+        _force_test_host.reset(token)
+
 
 def _use_test_host() -> bool:
-    """True if SPACETRACK_USE_TEST_HOST is set truthy (1/true/yes, case-insensitive).
+    """True when queries should hit the unlimited test host instead of prod.
 
-    Read at call time so the toggle takes effect per run without re-import. The
-    test host has no rate limits and the throttle is bypassed against it.
+    On when either the per-run override (force_test_host) is active or the env toggle
+    SPACETRACK_USE_TEST_HOST is set truthy (1/true/yes, case-insensitive). Both are read
+    at call time so the choice takes effect per run without re-import. The test host has
+    no rate limits and the throttle is bypassed against it.
     """
+    if _force_test_host.get():
+        return True
     return os.getenv("SPACETRACK_USE_TEST_HOST", "").strip().lower() in _TRUTHY
 
 
@@ -37,8 +63,9 @@ class _RateLimiter:
     """Sliding-window limiter enforcing per-minute AND per-hour caps simultaneously.
 
     In-process: paces requests within a single run. Across separate runs (a fresh
-    process each in the deployed launcher) state does not persist — heavy multi-run
-    backfills should use the test host instead. `now`/`sleep` are injectable so tests
+    process each in the deployed launcher) state does not persist — which is why
+    backfills are auto-routed to the unlimited test host (see force_test_host) rather
+    than relying on this limiter to pace them. `now`/`sleep` are injectable so tests
     drive a fake clock with no real sleeping. The lock is held across the sleep — fine
     under dlt's single-threaded extraction; do not combine with parallelized resources.
     """
@@ -78,6 +105,43 @@ def _throttle() -> None:
         _LIMITER.acquire()
 
 
+def _retry_after_seconds(resp) -> float:
+    """Seconds to wait before retrying a 429, taken from the Retry-After header.
+
+    space-track sends Retry-After as an integer second count. Fall back to the
+    configured default when the header is absent or in the (unsupported) HTTP-date form.
+    """
+    raw = resp.headers.get("Retry-After")
+    if raw is not None:
+        try:
+            return max(0.0, float(raw))
+        except (TypeError, ValueError):
+            pass  # HTTP-date form — use the default backoff instead
+    return SPACETRACK_RETRY_WAIT_DEFAULT_S
+
+
+def _request(session: requests.Session, method: str, url: str, *, sleep=None, **kwargs):
+    """Throttled HTTP request that backs off and retries on HTTP 429.
+
+    The in-process limiter paces a single run, but a backfill fans partitions out
+    across separate processes whose limiters cannot see each other, so space-track can
+    still answer 429. Honor Retry-After (or the configured default) and retry up to
+    SPACETRACK_MAX_RETRIES times — each retry re-acquires a throttle slot — rather than
+    failing the whole asset. The response is returned without raise_for_status so callers
+    keep their own status handling; an unrecovered 429 surfaces when the caller raises.
+    """
+    do_sleep = sleep if sleep is not None else time.sleep
+    resp = None
+    for attempt in range(SPACETRACK_MAX_RETRIES + 1):
+        _throttle()
+        resp = getattr(session, method)(url, **kwargs)
+        if resp.status_code == 429 and attempt < SPACETRACK_MAX_RETRIES:
+            do_sleep(_retry_after_seconds(resp))
+            continue
+        break
+    return resp
+
+
 def spacetrack_credentials() -> tuple[str, str]:
     """(username, password) from dlt secrets (env SPACETRACK_USERNAME / _PASSWORD)."""
     return dlt.secrets["spacetrack_username"], dlt.secrets["spacetrack_password"]
@@ -102,15 +166,17 @@ def login_session() -> requests.Session:
     """
     username, password = spacetrack_credentials()
     session = requests.Session()
-    _throttle()
-    resp = session.post(
+    resp = _request(
+        session,
+        "post",
         f"{_base_url()}/ajaxauth/login",
         data={"identity": username, "password": password},
         timeout=60,
     )
     resp.raise_for_status()
-    _throttle()
-    probe = session.get(
+    probe = _request(
+        session,
+        "get",
         f"{_base_url()}/basicspacedata/query/class/boxscore/limit/1/format/json",
         timeout=60,
     )
@@ -126,8 +192,7 @@ def query_class(session: requests.Session, cls: str, *segments: str):
     path = "/".join(segments)
     sep = "/" if path else ""
     url = f"{_base_url()}/basicspacedata/query/class/{cls}{sep}{path}/format/json"
-    _throttle()
-    resp = session.get(url, timeout=120)
+    resp = _request(session, "get", url, timeout=120)
     resp.raise_for_status()
     return resp.json()
 
